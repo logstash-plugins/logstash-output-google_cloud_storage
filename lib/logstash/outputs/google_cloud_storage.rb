@@ -360,7 +360,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     @client = Google::APIClient.new(:application_name =>
                                     'Logstash Google Cloud Storage output plugin',
                                     :application_version => '0.1')
-    @storage = @client.discovered_api('storage', 'v1beta1')
+    @storage = @client.discovered_api('storage', 'v1')
 
     key = Google::APIClient::PKCS12.load_key(@key_path, @key_password)
     service_account = Google::APIClient::JWTAsserter.new(@service_account,
