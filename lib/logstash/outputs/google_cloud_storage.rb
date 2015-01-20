@@ -67,7 +67,6 @@ require "zlib"
 # exposed by Ruby API client)
 class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config_name "google_cloud_storage"
-  milestone 1
 
   # GCS bucket name, without "gs://" or any other prefix.
   config :bucket, :validate => :string, :required => true
