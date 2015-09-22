@@ -169,8 +169,8 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   end
 
   public
-  def teardown
-    @logger.debug("GCS: teardown method called")
+  def close
+    @logger.debug("GCS: close method called")
 
     @temp_file.fsync()
     @temp_file.close()
