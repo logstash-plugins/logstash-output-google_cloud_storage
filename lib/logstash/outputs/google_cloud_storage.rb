@@ -1,4 +1,3 @@
-
 # encoding: utf-8
 # Author: Rodrigo De Castro <rdc@google.com>
 # Date: 2013-09-20
@@ -18,6 +17,7 @@
 # limitations under the License.
 require "logstash/outputs/base"
 require "logstash/namespace"
+require "logstash/json"
 require "zlib"
 
 # Summary: plugin to upload log events to Google Cloud Storage (GCS), rolling
@@ -67,6 +67,8 @@ require "zlib"
 # exposed by Ruby API client)
 class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config_name "google_cloud_storage"
+
+  concurrency :single
 
   # GCS bucket name, without "gs://" or any other prefix.
   config :bucket, :validate => :string, :required => true
@@ -135,12 +137,10 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # file, flushing depending on flush interval configuration.
   public
   def receive(event)
-    
-
     @logger.debug("GCS: receive method called", :event => event)
 
     if (@output_format == "json")
-      message = event.to_json
+      message = LogStash::Json.dump(event.to_hash)
     else
       message = event.to_s
     end
