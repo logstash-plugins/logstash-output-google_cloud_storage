@@ -3,6 +3,7 @@
   - relax contraints on logstash-core-plugin-api
   - Update .travis.yml
   - Freeze google-api-client and mime-types
+  - use concurrency :single
 
 ## 2.0.4
   - Depend on logstash-core-plugin-api instead of logstash-core, removing the need to mass update plugins on major releases of logstash
