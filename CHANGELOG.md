@@ -1,3 +1,6 @@
+## 3.0.1
+  - align the dependency on mime-type and google-api-client with the `logstash-output-google_bigquery`
+
 ## 3.0.0
   - Breaking: Updated plugin to use new Java Event APIs
   - relax contraints on logstash-core-plugin-api
