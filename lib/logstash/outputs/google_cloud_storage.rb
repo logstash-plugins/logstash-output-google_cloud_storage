@@ -259,7 +259,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # max file or gzip options.
   def get_base_path
     return @temp_directory + File::SEPARATOR + @log_file_prefix + "_" +
-      Socket.gethostname() + "_" + Time.now.strftime(@date_pattern)
+      Time.now.strftime(@date_pattern)
   end
 
   ##
