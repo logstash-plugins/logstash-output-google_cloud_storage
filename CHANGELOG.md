@@ -1,3 +1,6 @@
+## 3.0.2
+  - Docs: Fix doc formatting
+
 ## 3.0.1
   - align the dependency on mime-type and google-api-client with the `logstash-output-google_bigquery`
 
