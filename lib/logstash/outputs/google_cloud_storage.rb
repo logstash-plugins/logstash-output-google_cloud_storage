@@ -1,3 +1,5 @@
+# [source,txt]
+# -----
 # encoding: utf-8
 # Author: Rodrigo De Castro <rdc@google.com>
 # Date: 2013-09-20
@@ -15,6 +17,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# -----
 require "logstash/outputs/base"
 require "logstash/namespace"
 require "logstash/json"
@@ -40,6 +43,8 @@ require "zlib"
 # USAGE:
 # This is an example of logstash config:
 #
+# [source,json]
+# --------------------------
 # output {
 #    google_cloud_storage {
 #      bucket => "my_bucket"                                     (required)
@@ -56,14 +61,15 @@ require "zlib"
 #      uploader_interval_secs => 60                              (optional)
 #    }
 # }
+# --------------------------
 #
 # Improvements TODO list:
-# - Support logstash event variables to determine filename.
-# - Turn Google API code into a Plugin Mixin (like AwsConfig).
-# - There's no recover method, so if logstash/plugin crashes, files may not
+# * Support logstash event variables to determine filename.
+# * Turn Google API code into a Plugin Mixin (like AwsConfig).
+# * There's no recover method, so if logstash/plugin crashes, files may not
 # be uploaded to GCS.
-# - Allow user to configure file name.
-# - Allow parallel uploads for heavier loads (+ connection configuration if
+# * Allow user to configure file name.
+# * Allow parallel uploads for heavier loads (+ connection configuration if
 # exposed by Ruby API client)
 class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config_name "google_cloud_storage"
