@@ -55,6 +55,7 @@ output {
      date_pattern => "%Y-%m-%dT%H:00"                          (optional)
      flush_interval_secs => 2                                  (optional)
      gzip => false                                             (optional)
+     gzip_content_encoding => false                            (optional)
      uploader_interval_secs => 60                              (optional)
    }
 }
@@ -80,6 +81,7 @@ This plugin supports the following configuration options plus the <<plugins-{typ
 | <<plugins-{type}s-{plugin}-date_pattern>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-flush_interval_secs>> |<<number,number>>|No
 | <<plugins-{type}s-{plugin}-gzip>> |<<boolean,boolean>>|No
+| <<plugins-{type}s-{plugin}-gzip_content_encoding>> |<<boolean,boolean>>|No
 | <<plugins-{type}s-{plugin}-key_password>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-key_path>> |<<string,string>>|Yes
 | <<plugins-{type}s-{plugin}-log_file_prefix>> |<<string,string>>|No
@@ -128,7 +130,18 @@ on every message.
   * Value type is <<boolean,boolean>>
   * Default value is `false`
 
-Gzip output stream when writing events to log files.
+Gzip output stream when writing events to log files, set
+`Content-Type` to `application/gzip` instead of `text/plain`, and
+use file suffix `.log.gz` instead of `.log`.
+
+[id="plugins-{type}s-{plugin}-gzip_content_encoding"]
+===== `gzip_content_encoding`
+
+  * Value type is <<boolean,boolean>>
+  * Default value is `false`
+
+Gzip output stream when writing events to log files and set
+`Content-Encoding` to `gzip`.
 
 [id="plugins-{type}s-{plugin}-key_password"]
 ===== `key_password` 

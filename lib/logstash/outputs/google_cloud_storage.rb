@@ -58,6 +58,7 @@ require "zlib"
 #      date_pattern => "%Y-%m-%dT%H:00"                          (optional)
 #      flush_interval_secs => 2                                  (optional)
 #      gzip => false                                             (optional)
+#      gzip_content_encoding => false                            (optional)
 #      uploader_interval_secs => 60                              (optional)
 #    }
 # }
@@ -110,8 +111,14 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # on every message.
   config :flush_interval_secs, :validate => :number, :default => 2
 
-  # Gzip output stream when writing events to log files.
+  # Gzip output stream when writing events to log files, set
+  # `Content-Type` to `application/gzip` instead of `text/plain`, and
+  # use file suffix `.log.gz` instead of `.log`.
   config :gzip, :validate => :boolean, :default => false
+
+  # Gzip output stream when writing events to log files and set
+  # `Content-Encoding` to `gzip`.
+  config :gzip_content_encoding, :validate => :boolean, :default => false
 
   # Uploader interval when uploading new files to GCS. Adjust time based
   # on your time pattern (for example, for hourly files, this interval can be
@@ -136,6 +143,12 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
       @content_type = 'application/gzip'
     else
       @content_type = 'text/plain'
+    end
+
+    if @gzip_content_encoding
+      @content_encoding = 'gzip'
+    else
+      @content_encoding = 'identity'
     end
   end
 
@@ -318,6 +331,15 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     if @gzip
       fd = Zlib::GzipWriter.new(fd)
     end
+    # NOTE: Even though it makes little sense to do so, if a user
+    # enables both the `gzip` and `gzip_content_encoding` settings,
+    # the technically correct behaviour is to gzip the data
+    # twice. Thus, this is SUPPOSED to be a separate `if` statement,
+    # and NOT an `elif` clause. See here for explanation:
+    # https://cloud.google.com/storage/docs/transcoding#gzip-gzip
+    if @gzip_content_encoding
+      fd = Zlib::GzipWriter.new(fd)
+    end
     @temp_file = GCSIOWriter.new(fd)
     @upload_queue << @temp_file.to_path
   end
@@ -385,6 +407,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
                                                :parameters => {
                                                  'uploadType' => 'multipart',
                                                  'bucket' => @bucket,
+                                                 'contentEncoding' => @content_encoding,
                                                  'name' => File.basename(filename)
                                                },
                                                :body_object => {contentType: @content_type},
