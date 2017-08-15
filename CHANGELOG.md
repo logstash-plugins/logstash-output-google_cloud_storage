@@ -1,3 +1,6 @@
+## 3.0.4
+  - Fix some documentation issues
+
 ## 3.0.2
   - Docs: Fix doc formatting
 
