@@ -59,6 +59,7 @@ require "zlib"
 #      flush_interval_secs => 2                                  (optional)
 #      gzip => false                                             (optional)
 #      uploader_interval_secs => 60                              (optional)
+#      upload_synchronous => false                               (optional)
 #    }
 # }
 # --------------------------
@@ -125,6 +126,8 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # to GCS, especially in the event of a graceful shutdown of logstash, such as when an
   # input plugin reaches the end of events. This comes at the price of introducing delays
   # in the event processing pipeline as files are uploaded.
+  #
+  # When this feature is enabled, the uploader_interval_secs option has no effect.
   config :upload_synchronous, :validate => :boolean, :default => false
 
   public
