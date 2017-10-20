@@ -118,6 +118,15 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # around one hour).
   config :uploader_interval_secs, :validate => :number, :default => 60
 
+  # When true, files are uploaded by the event processing thread as soon as a file is ready.
+  # When false, (the default behaviour), files will be uploaded in a dedicated thread.
+  #
+  # Enabling this option provides greater likelihood that all generated files will be
+  # to GCS, especially in the event of a graceful shutdown of logstash, such as when an
+  # input plugin reaches the end of events. This comes at the price of introducing delays
+  # in the event processing pipeline as files are uploaded.
+  config :upload_synchronous, :validate => :boolean, :default => false
+
   public
   def register
     require "fileutils"
@@ -125,12 +134,18 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
     @logger.debug("GCS: register plugin")
 
-    @upload_queue = Queue.new
+    unless upload_synchronous
+      @upload_queue = Queue.new
+    end
+
     @last_flush_cycle = Time.now
     initialize_temp_directory()
     initialize_current_log()
     initialize_google_client()
-    initialize_uploader()
+
+    unless upload_synchronous
+      initialize_uploader()
+    end
 
     if @gzip
       @content_type = 'application/gzip'
@@ -162,6 +177,12 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
       # Close does not guarantee that data is physically written to disk.
       @temp_file.fsync()
       @temp_file.close()
+
+      if upload_synchronous
+        upload_object(@temp_file.to_path)
+        File.delete(@temp_file.to_path)
+      end
+
       initialize_next_log()
     end
 
@@ -179,7 +200,15 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     @logger.debug("GCS: close method called")
 
     @temp_file.fsync()
+    filename = @temp_file.to_path
+    size = @temp_file.size
     @temp_file.close()
+
+    if upload_synchronous && size > 0
+      @logger.debug("GCS: uploading last file of #{size.to_s}b")
+      upload_object(filename)
+      File.delete(filename)
+    end
   end
 
   private
@@ -319,7 +348,9 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
       fd = Zlib::GzipWriter.new(fd)
     end
     @temp_file = GCSIOWriter.new(fd)
-    @upload_queue << @temp_file.to_path
+    unless upload_synchronous
+      @upload_queue << @temp_file.to_path
+    end
   end
 
   ##
