@@ -251,7 +251,13 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
           end
         end
 
-        upload_object(filename)
+        if File.stat(filename).size > 0
+          upload_object(filename)
+        else
+          @logger.debug("GCS: file size is zero, skip upload.",
+                         :filename => filename,
+                         :filesize => File.stat(filename).size)
+        end
         @logger.debug("GCS: delete local temporary file ",
                       :filename => filename)
         File.delete(filename)
