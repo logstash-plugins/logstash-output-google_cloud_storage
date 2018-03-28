@@ -22,10 +22,16 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "logstash-core-plugin-api", ">= 1.60", "<= 2.99"
 
   s.add_runtime_dependency 'stud'
-  s.add_runtime_dependency 'google-api-client', '~> 0.8.7' # version 0.9.x works only with ruby 2.x
   s.add_runtime_dependency 'logstash-codec-plain'
   s.add_runtime_dependency 'mime-types', '~> 2' # last version compatible with ruby 2.x
   s.add_runtime_dependency 'concurrent-ruby', '1.0.5'
   s.add_development_dependency 'logstash-devutils'
+
+  # JARs
+  s.requirements << "jar 'com.google.cloud:google-cloud', '0.41.0-alpha'"
+  s.requirements << "jar 'com.google.auth:google-auth-library-oauth2-http', '0.9.0'"
+
+  s.add_development_dependency 'jar-dependencies', '~> 0.3.2'
+
 end
 

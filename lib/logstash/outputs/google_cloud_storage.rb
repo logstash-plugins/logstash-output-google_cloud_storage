@@ -18,6 +18,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # -----
+require 'logstash/outputs/gcs/client'
 require "logstash/outputs/base"
 require "logstash/outputs/gcs/path_factory"
 require "logstash/outputs/gcs/worker_pool"
@@ -53,9 +54,7 @@ require "zlib"
 # output {
 #    google_cloud_storage {
 #      bucket => "my_bucket"                                     (required)
-#      key_path => "/path/to/privatekey.p12"                     (required)
-#      key_password => "notasecret"                              (optional)
-#      service_account => "1234@developer.gserviceaccount.com"   (required)
+#      json_key_file => "/path/to/privatekey.json"               (optional)
 #      temp_directory => "/tmp/logstash-gcs"                     (optional)
 #      log_file_prefix => "logstash_gcs"                         (optional)
 #      max_file_size_kbytes => 1024                              (optional)
@@ -84,13 +83,13 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config :bucket, :validate => :string, :required => true
 
   # GCS path to private key file.
-  config :key_path, :validate => :string, :required => true
+  config :key_path, :validate => :string, :obsolete => 'Use json_key_file or ADC instead.'
 
   # GCS private key password.
-  config :key_password, :validate => :string, :default => "notasecret"
+  config :key_password, :validate => :string, :obsolete => 'Use json_key_file or ADC instead.'
 
   # GCS service account.
-  config :service_account, :validate => :string, :required => true
+  config :service_account, :validate => :string, :obsolete => 'Use json_key_file or ADC instead.'
 
   # Directory where temporary files are stored.
   # Defaults to /tmp/logstash-gcs-<random-suffix>
@@ -140,6 +139,13 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config :upload_synchronous, :validate => :boolean, :default => false
 
   config :max_concurrent_uploads, :validate  => :number, :default => 5
+
+  # The path to the service account's JSON credentials file.
+  # Application Default Credentials (ADC) are used if the path is blank.
+  # See: https://cloud.google.com/docs/authentication/production
+  #
+  # You must run on GCP for ADC to work.
+  config :json_key_file, :validate => :string, :default => ""
 
   public
   def register
@@ -226,46 +232,13 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   ##
   # Initializes Google Client instantiating client and authorizing access.
   def initialize_google_client
-    require "google/api_client"
-    require "openssl"
-
-    @client = Google::APIClient.new(:application_name =>
-                                    'Logstash Google Cloud Storage output plugin',
-                                    :application_version => '0.1')
-    @storage = @client.discovered_api('storage', 'v1')
-
-    key = Google::APIClient::PKCS12.load_key(@key_path, @key_password)
-    service_account = Google::APIClient::JWTAsserter.new(@service_account,
-                                                         'https://www.googleapis.com/auth/devstorage.read_write',
-                                                         key)
-    @client.authorization = service_account.authorize
+    @client = LogStash::Outputs::Gcs::Client.new @bucket, @json_key_file, @logger
   end
 
   ##
   # Uploads a local file to the configured bucket.
   def upload_object(filename)
-    begin
-      @logger.debug("GCS: upload object.", :filename => filename)
-
-      media = Google::APIClient::UploadIO.new(filename, @content_type)
-      metadata_insert_result = @client.execute(:api_method => @storage.objects.insert,
-                                               :parameters => {
-                                                 'uploadType' => 'multipart',
-                                                 'bucket' => @bucket,
-                                                 'name' => File.basename(filename)
-                                               },
-                                               :body_object => {contentType: @content_type},
-                                               :media => media)
-      contents = metadata_insert_result.data
-      @logger.debug("GCS: multipart insert",
-                    :object => contents.name,
-                    :self_link => contents.self_link)
-    rescue => e
-      @logger.error("GCS: failed to upload file", :exception => e)
-      # TODO(rdc): limit retries?
-      sleep 1
-      retry
-    end
+    @client.upload_object filename
   end
 
   def upload_and_delete(filename)
@@ -292,4 +265,5 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
       end
     end
   end
+  attr_accessor :active
 end
