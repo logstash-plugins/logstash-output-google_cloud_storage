@@ -7,7 +7,7 @@ Gem::Specification.new do |s|
   s.authors         = ["Elastic"]
   s.email           = 'info@elastic.co'
   s.homepage        = "http://www.elastic.co/guide/en/logstash/current/index.html"
-  s.require_paths = ["lib"]
+  s.require_paths = ["lib", "vendor/jar-dependencies"]
 
   # Files
   s.files = Dir["lib/**/*","spec/**/*","*.gemspec","*.md","CONTRIBUTORS","Gemfile","LICENSE","NOTICE.TXT", "vendor/jar-dependencies/**/*.jar", "vendor/jar-dependencies/**/*.rb", "VERSION", "docs/**/*"]
@@ -31,7 +31,9 @@ Gem::Specification.new do |s|
   s.requirements << "jar 'com.google.cloud:google-cloud', '0.41.0-alpha'"
   s.requirements << "jar 'com.google.auth:google-auth-library-oauth2-http', '0.9.0'"
 
-  s.add_development_dependency 'jar-dependencies', '~> 0.3.2'
+  s.add_development_dependency 'jar-dependencies', '~> 0.3.4'
   s.add_development_dependency 'ruby-maven', '~> 3.3.11'
+
+  s.platform = 'java'
 end
 
