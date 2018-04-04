@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name            = 'logstash-output-google_cloud_storage'
-  s.version         = '3.2.1'
+  s.version         = '4.0.0'
   s.licenses        = ['Apache-2.0']
   s.summary         = "plugin to upload log events to Google Cloud Storage (GCS)"
   s.description     = "This gem is a Logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/logstash-plugin install gemname. This gem is not a stand-alone program"
