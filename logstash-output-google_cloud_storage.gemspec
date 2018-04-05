@@ -28,7 +28,7 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'logstash-devutils'
 
   # JARs
-  s.requirements << "jar 'com.google.cloud:google-cloud', '0.41.0-alpha'"
+  s.requirements << "jar 'com.google.cloud:google-cloud-storage', '1.25.0'"
   s.requirements << "jar 'com.google.auth:google-auth-library-oauth2-http', '0.9.0'"
 
   s.add_development_dependency 'jar-dependencies', '~> 0.3.4'
