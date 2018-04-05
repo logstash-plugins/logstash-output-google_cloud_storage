@@ -137,17 +137,18 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
     @logger.debug("GCS: register plugin")
 
+    @last_flush_cycle = Time.now
+
     unless upload_synchronous
-      @upload_queue = Queue.new
+      initialize_upload_queue()
     end
 
-    @last_flush_cycle = Time.now
     initialize_temp_directory()
     initialize_current_log()
     initialize_google_client()
 
     unless upload_synchronous
-      initialize_uploader()
+      @uploader = start_uploader
     end
 
     if @gzip
@@ -254,42 +255,51 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     end
   end
 
-  ##
-  # Starts thread to upload log files.
-  #
-  # Uploader is done in a separate thread, not holding the receive method above.
-  def initialize_uploader
-    @uploader = Thread.new do
+  def start_uploader
+    Thread.new do
       @logger.debug("GCS: starting uploader")
       while true
-        filename = @upload_queue.pop
-
-        # Reenqueue if it is still the current file.
-        if filename == @temp_file.to_path
-          if @current_base_path == get_base_path()
-            @logger.debug("GCS: reenqueue as log file is being currently appended to.",
-                          :filename => filename)
-            @upload_queue << filename
-            # If we got here, it means that older files were uploaded, so let's
-            # wait another minute before checking on this file again.
-            sleep @uploader_interval_secs
-            next
-          else
-            @logger.debug("GCS: flush and close file to be uploaded.",
-                          :filename => filename)
-            @temp_file.fsync()
-            @temp_file.close()
-            initialize_next_log()
-          end
-        end
-
-        upload_object(filename)
-        @logger.debug("GCS: delete local temporary file ",
-                      :filename => filename)
-        File.delete(filename)
-        sleep @uploader_interval_secs
+        upload_from_queue()
       end
     end
+  end
+  ##
+  # Uploads log files.
+  #
+  # Uploader is done in a separate thread, not holding the receive method above.
+  def upload_from_queue
+    filename = @upload_queue.pop
+
+    # Reenqueue if it is still the current file.
+    if filename == @temp_file.to_path
+      if @current_base_path == get_base_path()
+        @logger.debug("GCS: reenqueue as log file is being currently appended to.",
+                      :filename => filename)
+        @upload_queue << filename
+        # If we got here, it means that older files were uploaded, so let's
+        # wait another minute before checking on this file again.
+        sleep @uploader_interval_secs
+        return
+      else
+        @logger.debug("GCS: flush and close file to be uploaded.",
+                      :filename => filename)
+        @temp_file.fsync()
+        @temp_file.close()
+        initialize_next_log()
+      end
+    end
+
+    if File.stat(filename).size > 0
+      upload_object(filename)
+    else
+      @logger.debug("GCS: file size is zero, skip upload.",
+                     :filename => filename,
+                     :filesize => File.stat(filename).size)
+    end
+    @logger.debug("GCS: delete local temporary file ",
+                  :filename => filename)
+    File.delete(filename)
+    sleep @uploader_interval_secs
   end
 
   ##
@@ -406,6 +416,15 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
                                                          'https://www.googleapis.com/auth/devstorage.read_write',
                                                          key)
     @client.authorization = service_account.authorize
+  end
+
+  # Initialize the queue that harbors files to be uploaded
+  def initialize_upload_queue
+    @upload_queue = new_upload_queue()
+  end
+
+  def new_upload_queue
+    Queue.new
   end
 
   ##
