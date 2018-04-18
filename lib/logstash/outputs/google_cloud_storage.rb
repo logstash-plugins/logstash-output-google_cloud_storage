@@ -142,6 +142,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     require "thread"
 
     @logger.debug("GCS: register plugin")
+    @stopping = false
 
     @last_flush_cycle = Time.now
 
@@ -207,18 +208,34 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   public
   def close
-    @logger.debug("GCS: close method called")
+    @logger.info('Stopping GCS output plugin and uploading remaining files.')
+    @stopping = true
 
     @temp_file.fsync()
     filename = @temp_file.to_path
-    size = @temp_file.size
     @temp_file.close()
 
-    if upload_synchronous && size > 0
-      @logger.debug("GCS: uploading last file of #{size.to_s}b")
-      upload_object(filename)
-      File.delete(filename)
+    if upload_synchronous
+      upload_and_delete filename
+    else
+      until @upload_queue.empty?
+        filename = @upload_queue.pop
+
+        upload_and_delete filename
+      end
     end
+  end
+
+  public
+  def upload_and_delete(filename)
+    if File.stat(filename).size > 0
+      @logger.info("Uploading file: #{filename}")
+      upload_object(filename)
+    else
+      @logger.info("Skip uploading empty file: #{filename}")
+    end
+
+    File.delete(filename)
   end
 
   private
@@ -264,7 +281,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   def start_uploader
     Thread.new do
       @logger.debug("GCS: starting uploader")
-      while true
+      while !@stopping
         upload_from_queue()
       end
     end
