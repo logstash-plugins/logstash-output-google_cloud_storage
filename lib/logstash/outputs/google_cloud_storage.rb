@@ -127,6 +127,13 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # Should a UUID be included in the file name?
   config :include_uuid, :validate => :boolean, :default => false
 
+  # The path to the service account's JSON credentials file.
+  # Application Default Credentials (ADC) are used if the path is blank.
+  # See: https://cloud.google.com/docs/authentication/production
+  #
+  # You must run on GCP for ADC to work.
+  config :json_key_file, :validate => :string, :default => ""
+
   # When true, files are uploaded by the event processing thread as soon as a file is ready.
   # When false, (the default behaviour), files will be uploaded in a dedicated thread.
   #
