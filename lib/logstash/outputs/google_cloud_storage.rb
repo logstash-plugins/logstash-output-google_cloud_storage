@@ -86,10 +86,10 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config :key_path, :validate => :string, :obsolete => 'Use json_key_file or ADC instead.'
 
   # GCS private key password.
-  config :key_password, :validate => :string, :obsolete => 'Use json_key_file or ADC instead.'
+  config :key_password, :validate => :string, :deprecated => 'Use json_key_file or ADC instead.'
 
   # GCS service account.
-  config :service_account, :validate => :string, :obsolete => 'Use json_key_file or ADC instead.'
+  config :service_account, :validate => :string, :deprecated => 'Use json_key_file or ADC instead.'
 
   # Directory where temporary files are stored.
   # Defaults to /tmp/logstash-gcs-<random-suffix>
