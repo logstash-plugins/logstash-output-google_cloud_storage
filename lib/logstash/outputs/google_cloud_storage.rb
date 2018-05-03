@@ -134,15 +134,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     @last_flush_cycle = Time.now
     initialize_upload_queue()
     initialize_temp_directory()
-    @path_factory = Logstash::Outputs::Gcs::PathFactory.new(
-        @temp_directory,
-        @log_file_prefix,
-        @include_hostname,
-        @date_pattern,
-        @max_file_size_kbytes > 0,
-        @include_uuid,
-        @gzip
-    )
+    initialize_path_factory
     open_current_file
 
     initialize_google_client()
@@ -234,6 +226,18 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
                     :directory => @temp_directory)
       FileUtils.mkdir_p(@temp_directory)
     end
+  end
+
+  def initialize_path_factory
+    @path_factory = LogStash::Outputs::Gcs::PathFactory.new(
+        @temp_directory,
+        @log_file_prefix,
+        @include_hostname,
+        @date_pattern,
+        @max_file_size_kbytes > 0,
+        @include_uuid,
+        @gzip
+    )
   end
 
   def start_uploader
