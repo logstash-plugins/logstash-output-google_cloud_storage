@@ -118,6 +118,12 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # around one hour).
   config :uploader_interval_secs, :validate => :number, :default => 60
 
+  # Should the hostname be included in the file name?
+  config :include_hostname, :validate => :boolean, :default => true
+
+  # Should a UUID be included in the file name?
+  config :include_uuid, :validate => :boolean, :default => false
+
   public
   def register
     require "fileutils"
@@ -128,7 +134,17 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     @last_flush_cycle = Time.now
     initialize_upload_queue()
     initialize_temp_directory()
-    initialize_current_log()
+    @path_factory = Logstash::Outputs::Gcs::PathFactory.new(
+        @temp_directory,
+        @log_file_prefix,
+        @include_hostname,
+        @date_pattern,
+        @max_file_size_kbytes > 0,
+        @include_uuid,
+        @gzip
+    )
+    open_current_file
+
     initialize_google_client()
     @uploader = start_uploader
 
@@ -151,10 +167,8 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
       message = event.to_s
     end
 
-    new_base_path = get_base_path()
-
     # Time to roll file based on the date pattern? Or is it over the size limit?
-    if (@current_base_path != new_base_path || (@max_file_size_kbytes > 0 && @temp_file.size >= @max_file_size_kbytes * 1024))
+    if (@path_factory.should_rotate? || (@max_file_size_kbytes > 0 && @temp_file.size >= @max_file_size_kbytes * 1024))
       @logger.debug("GCS: log file will be closed and uploaded",
                     :filename => File.basename(@temp_file.to_path),
                     :size => @temp_file.size.to_s,
@@ -239,7 +253,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
     # Reenqueue if it is still the current file.
     if filename == @temp_file.to_path
-      if @current_base_path == get_base_path()
+      if !@path_factory.should_rotate?
         @logger.debug("GCS: reenqueue as log file is being currently appended to.",
                       :filename => filename)
         @upload_queue << filename
@@ -270,54 +284,11 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   end
 
   ##
-  # Returns base path to log file that is invariant regardless of whether
-  # max file or gzip options.
-  def get_base_path
-    return @temp_directory + File::SEPARATOR + @log_file_prefix + "_" +
-      Socket.gethostname() + "_" + Time.now.strftime(@date_pattern)
-  end
-
-  ##
-  # Returns log file suffix, which will vary depending on whether gzip is
-  # enabled.
-  def get_suffix
-    return @gzip ? ".log.gz" : ".log"
-  end
-
-  ##
-  # Returns full path to the log file based on global variables (like
-  # current_base_path) and configuration options (max file size and gzip
-  # enabled).
-  def get_full_path
-    if @max_file_size_kbytes > 0
-      return @current_base_path + ".part" + ("%03d" % @size_counter) + get_suffix()
-    else
-      return @current_base_path + get_suffix()
-    end
-  end
-
-  ##
-  # Returns latest part number for a base path. This method checks all existing
-  # log files in order to find the highest part number, so this file can be used
-  # for appending log events.
-  #
-  # Only applicable if max file size is enabled.
-  def get_latest_part_number(base_path)
-    part_numbers = Dir.glob(base_path + ".part*" + get_suffix()).map do |item|
-      match = /^.*\.part(?<part_num>\d+)#{get_suffix()}$/.match(item)
-      next if match.nil?
-      match[:part_num].to_i
-    end
-
-    return part_numbers.max if part_numbers.any?
-    0
-  end
-
-  ##
   # Opens current log file and updates @temp_file with an instance of IOWriter.
   # This method also adds file to the upload queue.
   def open_current_file()
-    path = get_full_path()
+    path = @path_factory.current_path
+
     stat = File.stat(path) rescue nil
     if stat and stat.ftype == "fifo" and RUBY_PLATFORM == "java"
       fd = java.io.FileWriter.new(java.io.File.new(path))
@@ -332,36 +303,12 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   end
 
   ##
-  # Opens log file on plugin initialization, trying to resume from an existing
-  # file. If max file size is enabled, find the highest part number and resume
-  # from it.
-  def initialize_current_log
-    @current_base_path = get_base_path
-    if @max_file_size_kbytes > 0
-      @size_counter = get_latest_part_number(@current_base_path)
-      @logger.debug("GCS: resuming from latest part.",
-                    :part => @size_counter)
-    end
-    open_current_file()
-  end
-
-  ##
   # Generates new log file name based on configuration options and opens log
   # file. If max file size is enabled, part number if incremented in case the
   # the base log file name is the same (e.g. log file was not rolled given the
   # date pattern).
   def initialize_next_log
-    new_base_path = get_base_path
-    if @max_file_size_kbytes > 0
-      @size_counter = @current_base_path == new_base_path ? @size_counter + 1 : 0
-      @logger.debug("GCS: opening next log file.",
-                    :filename => @current_base_path,
-                    :part => @size_counter)
-    else
-      @logger.debug("GCS: opening next log file.",
-                    :filename => @current_base_path)
-    end
-    @current_base_path = new_base_path
+    @path_factory.rotate_path!
     open_current_file()
   end
 

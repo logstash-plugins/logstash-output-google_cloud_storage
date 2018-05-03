@@ -56,6 +56,8 @@ output {
      flush_interval_secs => 2                                  (optional)
      gzip => false                                             (optional)
      uploader_interval_secs => 60                              (optional)
+     include_uuid => true                                      (optional)
+     include_hostname => true                                  (optional)
    }
 }
 --------------------------
@@ -80,6 +82,8 @@ This plugin supports the following configuration options plus the <<plugins-{typ
 | <<plugins-{type}s-{plugin}-date_pattern>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-flush_interval_secs>> |<<number,number>>|No
 | <<plugins-{type}s-{plugin}-gzip>> |<<boolean,boolean>>|No
+| <<plugins-{type}s-{plugin}-include_hostname>> |<<boolean,boolean>>|No
+| <<plugins-{type}s-{plugin}-include_uuid>> |<<boolean,boolean>>|No
 | <<plugins-{type}s-{plugin}-key_password>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-key_path>> |<<string,string>>|Yes
 | <<plugins-{type}s-{plugin}-log_file_prefix>> |<<string,string>>|No
@@ -129,6 +133,32 @@ on every message.
   * Default value is `false`
 
 Gzip output stream when writing events to log files.
+
+[id="plugins-{type}s-{plugin}-include_hostname"]
+===== `include_hostname`
+
+added[3.1.0]
+
+  * Value type is <<boolean,boolean>>
+  * Default value is `true`
+
+Should the hostname be included in the file name?
+You may want to turn this off for privacy reasons or if you are running multiple
+instances of Logstash and need to match the files you create with a simple glob
+such as if you wanted to import files to BigQuery.
+
+
+[id="plugins-{type}s-{plugin}-include_uuid"]
+===== `include_uuid`
+
+added[3.1.0]
+
+  * Value type is <<boolean,boolean>>
+  * Default value is `false`
+
+Adds a UUID to the end of a file name.
+You may want to enable this feature so files don't clobber one another if you're
+running multiple instances of Logstash or if you expect frequent node restarts.
 
 [id="plugins-{type}s-{plugin}-key_password"]
 ===== `key_password` 
