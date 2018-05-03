@@ -19,6 +19,7 @@
 # limitations under the License.
 # -----
 require "logstash/outputs/base"
+require "logstash/outputs/gcs/path_factory"
 require "logstash/namespace"
 require "logstash/json"
 require "zlib"
