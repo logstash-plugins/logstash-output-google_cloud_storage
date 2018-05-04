@@ -90,6 +90,27 @@ module LogStash
           @base_pattern % @current
         end
       end
+
+      # PathFactoryBuilder makes the long PathFactory constructor chain more readable.
+      class PathFactoryBuilder
+        def self.build
+          builder = new
+          yield builder
+          builder.build_path_factory
+        end
+
+        def self.builder_setter(*names)
+          names.each do |name|
+            define_method("set_#{name}") {|arg| instance_variable_set("@#{name}", arg)}
+          end
+        end
+
+        builder_setter :directory, :prefix, :include_host, :date_pattern, :include_part, :include_uuid, :is_gzipped
+
+        def build_path_factory
+          PathFactory.new(@directory, @prefix, @include_host, @date_pattern, @include_part, @include_uuid, @is_gzipped)
+        end
+      end
     end
   end
 end

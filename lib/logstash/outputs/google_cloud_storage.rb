@@ -230,15 +230,15 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   end
 
   def initialize_path_factory
-    @path_factory = LogStash::Outputs::Gcs::PathFactory.new(
-        @temp_directory,
-        @log_file_prefix,
-        @include_hostname,
-        @date_pattern,
-        @max_file_size_kbytes > 0,
-        @include_uuid,
-        @gzip
-    )
+    @path_factory = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
+      builder.set_directory @temp_directory
+      builder.set_prefix @log_file_prefix
+      builder.set_include_host @include_hostname
+      builder.set_date_pattern @date_pattern
+      builder.set_include_part(@max_file_size_kbytes > 0)
+      builder.set_include_uuid @include_uuid
+      builder.set_is_gzipped @gzip
+    end
   end
 
   def start_uploader
@@ -285,7 +285,6 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     @logger.debug("GCS: delete local temporary file ",
                   :filename => filename)
     File.delete(filename)
-    sleep @uploader_interval_secs
   end
 
   ##

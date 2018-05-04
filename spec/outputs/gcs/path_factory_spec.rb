@@ -4,15 +4,15 @@ require 'logstash/outputs/gcs/path_factory'
 describe LogStash::Outputs::Gcs::PathFactory do
   describe '#initialize' do
     it 'includes optional fields if requested' do
-      pf = LogStash::Outputs::Gcs::PathFactory.new(
-          'path/to/directory',
-          'prefix',
-          true,
-          '',
-          true,
-          true,
-          true
-      )
+      pf = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
+        builder.set_directory 'path/to/directory'
+        builder.set_prefix 'prefix'
+        builder.set_include_host true
+        builder.set_date_pattern ''
+        builder.set_include_part true
+        builder.set_include_uuid true
+        builder.set_is_gzipped true
+      end
 
       vars = {
           prefix: 'prefix',
@@ -31,15 +31,15 @@ describe LogStash::Outputs::Gcs::PathFactory do
     end
 
     it 'excludes optional fields if not requested' do
-      pf = LogStash::Outputs::Gcs::PathFactory.new(
-          'path/to/directory',
-          'prefix',
-          false,
-          '',
-          false,
-          false,
-          false
-      )
+      pf = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
+        builder.set_directory 'path/to/directory'
+        builder.set_prefix 'prefix'
+        builder.set_include_host false
+        builder.set_date_pattern ''
+        builder.set_include_part false
+        builder.set_include_uuid false
+        builder.set_is_gzipped false
+      end
 
       vars = {
           prefix: 'prefix',
@@ -58,7 +58,15 @@ describe LogStash::Outputs::Gcs::PathFactory do
     end
 
     it 'loads a path immediately' do
-      pf = LogStash::Outputs::Gcs::PathFactory.new('', '', false, '', false, false, false)
+      pf = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
+        builder.set_directory ''
+        builder.set_prefix ''
+        builder.set_include_host false
+        builder.set_date_pattern ''
+        builder.set_include_part false
+        builder.set_include_uuid false
+        builder.set_is_gzipped false
+      end
 
       expect(pf.current_path).to_not eq(nil)
     end
@@ -69,7 +77,15 @@ describe LogStash::Outputs::Gcs::PathFactory do
       allow(::File).to receive(:directory?).with('dir').and_return(true)
       allow(Dir).to receive(:glob).and_return(contents)
 
-      pf = LogStash::Outputs::Gcs::PathFactory.new('dir', 'pre', false, 'date', true, false, false)
+      pf = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
+        builder.set_directory 'dir'
+        builder.set_prefix 'pre'
+        builder.set_include_host false
+        builder.set_date_pattern 'date'
+        builder.set_include_part true
+        builder.set_include_uuid false
+        builder.set_is_gzipped false
+      end
 
       expect(pf.current_path).to include('part092')
     end
@@ -77,7 +93,16 @@ describe LogStash::Outputs::Gcs::PathFactory do
 
   describe 'rotate_path!' do
     it 'increments the part number if the base has not changed' do
-      pf = LogStash::Outputs::Gcs::PathFactory.new('dir', 'pre', false, 'date', true, false, false)
+      pf = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
+        builder.set_directory 'dir'
+        builder.set_prefix 'pre'
+        builder.set_include_host false
+        builder.set_date_pattern 'date'
+        builder.set_include_part true
+        builder.set_include_uuid false
+        builder.set_is_gzipped false
+      end
+
       expect(pf.current_path).to eq(File.join('dir', 'pre_date.part000.log'))
 
       pf.rotate_path!
@@ -85,7 +110,15 @@ describe LogStash::Outputs::Gcs::PathFactory do
     end
 
     it 'resets the part number if the base has changed' do
-      pf = LogStash::Outputs::Gcs::PathFactory.new('dir', 'pre', false, '%N', true, false, false)
+      pf = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
+        builder.set_directory 'dir'
+        builder.set_prefix 'pre'
+        builder.set_include_host false
+        builder.set_date_pattern '%N'
+        builder.set_include_part true
+        builder.set_include_uuid false
+        builder.set_is_gzipped false
+      end
       expect(pf.current_path).to include('part000')
 
       pf.rotate_path!
@@ -93,7 +126,15 @@ describe LogStash::Outputs::Gcs::PathFactory do
     end
 
     it 'returns the current_path' do
-      pf = LogStash::Outputs::Gcs::PathFactory.new('dir', 'pre', false, 'date', true, false, false)
+      pf = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
+        builder.set_directory 'dir'
+        builder.set_prefix 'pre'
+        builder.set_include_host false
+        builder.set_date_pattern 'date'
+        builder.set_include_part true
+        builder.set_include_uuid false
+        builder.set_is_gzipped false
+      end
       after = pf.rotate_path!
       expect(after).to eq(File.join('dir', 'pre_date.part001.log'))
     end
@@ -101,13 +142,29 @@ describe LogStash::Outputs::Gcs::PathFactory do
 
   describe 'should_rotate?' do
     it 'returns false when the times in the bases are the same' do
-      pf = LogStash::Outputs::Gcs::PathFactory.new('', '', false, '', false, false, false)
+      pf = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
+        builder.set_directory ''
+        builder.set_prefix ''
+        builder.set_include_host false
+        builder.set_date_pattern ''
+        builder.set_include_part false
+        builder.set_include_uuid false
+        builder.set_is_gzipped false
+      end
       sleep 0.1
       expect(pf.should_rotate?).to eq(false)
     end
 
     it 'returns true when the times in the bases are different' do
-      pf = LogStash::Outputs::Gcs::PathFactory.new('', '', false, '%N', false, false, false)
+      pf = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
+        builder.set_directory ''
+        builder.set_prefix ''
+        builder.set_include_host false
+        builder.set_date_pattern '%N'
+        builder.set_include_part false
+        builder.set_include_uuid false
+        builder.set_is_gzipped false
+      end
       sleep 0.1
       expect(pf.should_rotate?).to eq(true)
     end
@@ -115,7 +172,16 @@ describe LogStash::Outputs::Gcs::PathFactory do
 
   describe 'current_path' do
     it 'joins the directory and filename' do
-      pf = LogStash::Outputs::Gcs::PathFactory.new('dir', 'pre', false, 'date', false, false, false)
+      pf = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
+        builder.set_directory 'dir'
+        builder.set_prefix 'pre'
+        builder.set_include_host false
+        builder.set_date_pattern 'date'
+        builder.set_include_part false
+        builder.set_include_uuid false
+        builder.set_is_gzipped false
+      end
+
       expect(pf.current_path).to eq(File.join('dir', 'pre_date.log'))
     end
   end
