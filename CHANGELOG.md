@@ -1,3 +1,7 @@
+## 3.1.0
+  - Add support for disabling hostname in the log file names
+  - Add support for adding a UUID to the log file names
+
 ## 3.0.5
   - Docs: Set the default_codec doc attribute.
 
