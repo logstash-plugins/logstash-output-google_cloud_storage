@@ -26,7 +26,8 @@ describe LogStash::Outputs::GoogleCloudStorage do
       allow(subject).to receive(:new_upload_queue).and_return(upload_queue)
       subject.send(:initialize_upload_queue)
       subject.send(:initialize_temp_directory)
-      subject.send(:initialize_current_log)
+      subject.send(:initialize_path_factory)
+      subject.send(:open_current_file)
       current_file = upload_queue.pop
       File.write(current_file, content) if content
       upload_queue.push(current_file)
