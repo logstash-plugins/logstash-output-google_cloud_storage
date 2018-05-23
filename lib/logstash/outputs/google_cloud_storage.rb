@@ -24,6 +24,7 @@ require "logstash/outputs/gcs/worker_pool"
 require "logstash/namespace"
 require "logstash/json"
 require "stud/interval"
+require "thread"
 require "zlib"
 
 # Summary: plugin to upload log events to Google Cloud Storage (GCS), rolling
@@ -139,18 +140,18 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   config :max_concurrent_uploads, :validate  => :number, :default => 5
 
+  public
   def register
     require "fileutils"
-    require "thread"
     @logger.debug("GCS: register plugin")
     @last_flush_cycle = Time.now
 
     @workers = LogStash::Outputs::Gcs::WorkerPool.new(@max_concurrent_uploads, @upload_synchronous)
-    initialize_temp_directory
+    initialize_temp_directory()
     initialize_path_factory
     open_current_file
 
-    initialize_google_client
+    initialize_google_client()
 
     start_uploader
 
@@ -163,6 +164,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   # Method called for each log event. It writes the event to the current output
   # file, flushing depending on flush interval configuration.
+  public
   def receive(event)
     @logger.debug("GCS: receive method called", :event => event)
 
@@ -184,6 +186,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
                   :filename => File.basename(@temp_file.to_path))
   end
 
+  public
   def close
     @logger.debug('Stopping the plugin, uploading the remaining files.')
 
@@ -269,9 +272,15 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   def open_current_file
     path = @path_factory.current_path
 
-    fd = File.new(path, "a")
-    fd = Zlib::GzipWriter.new(fd) if @gzip
-
+    stat = File.stat(path) rescue nil
+    if stat and stat.ftype == "fifo" and RUBY_PLATFORM == "java"
+      fd = java.io.FileWriter.new(java.io.File.new(path))
+    else
+      fd = File.new(path, "a")
+    end
+    if @gzip
+      fd = Zlib::GzipWriter.new(fd)
+    end
     @temp_file = GCSIOWriter.new(fd)
   end
 
@@ -283,7 +292,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   def initialize_next_log
     close_and_upload_current
     @path_factory.rotate_path!
-    open_current_file
+    open_current_file()
   end
 
   ##

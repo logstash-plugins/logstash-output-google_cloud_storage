@@ -4,7 +4,7 @@ require "google/api_client"
 require "tempfile"
 
 describe LogStash::Outputs::GoogleCloudStorage do
-  
+
   let(:client) { double("google-client") }
   let(:service_account) { double("service-account") }
   let(:key)    { "key" }
