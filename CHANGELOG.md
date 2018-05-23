@@ -1,3 +1,10 @@
+## 3.2.0
+  - Change uploads to use a job pool for better performance
+    - Fixes [#22](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/22) - Refactor Job Queue Architecture
+    - Fixes [#5](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/5) - Major Performance Issues
+  - Wait for files to upload before Logstash quits
+    - Fixes [#15](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/15) - Fails to upload files when Logstash exits
+
 ## 3.1.0
   - Add support for disabling hostname in the log file names
   - Add support for adding a UUID to the log file names
