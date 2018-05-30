@@ -20,8 +20,12 @@
 # -----
 require "logstash/outputs/base"
 require "logstash/outputs/gcs/path_factory"
+require "logstash/outputs/gcs/worker_pool"
+require "logstash/outputs/gcs/log_rotate"
 require "logstash/namespace"
 require "logstash/json"
+require "stud/interval"
+require "thread"
 require "zlib"
 
 # Summary: plugin to upload log events to Google Cloud Storage (GCS), rolling
@@ -71,8 +75,6 @@ require "zlib"
 # * There's no recover method, so if logstash/plugin crashes, files may not
 # be uploaded to GCS.
 # * Allow user to configure file name.
-# * Allow parallel uploads for heavier loads (+ connection configuration if
-# exposed by Ruby API client)
 class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config_name "google_cloud_storage"
 
@@ -137,111 +139,50 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # When this feature is enabled, the uploader_interval_secs option has no effect.
   config :upload_synchronous, :validate => :boolean, :default => false
 
+  config :max_concurrent_uploads, :validate  => :number, :default => 5
+
   public
   def register
-    require "fileutils"
-    require "thread"
-
-    @logger.debug("GCS: register plugin")
-
+    @logger.debug('Registering Google Cloud Storage plugin')
     @last_flush_cycle = Time.now
 
-    unless upload_synchronous
-      initialize_upload_queue()
-    end
-
-    initialize_temp_directory()
+    @workers = LogStash::Outputs::Gcs::WorkerPool.new(@max_concurrent_uploads, @upload_synchronous)
+    initialize_temp_directory
     initialize_path_factory
-    open_current_file
+    initialize_log_rotater
 
-    initialize_google_client()
+    initialize_google_client
 
-    unless upload_synchronous
-      @uploader = start_uploader
-    end
+    start_uploader
 
-    if @gzip
-      @content_type = 'application/gzip'
-    else
-      @content_type = 'text/plain'
-    end
+    @content_type = @gzip ? 'application/gzip' : 'text/plain'
   end
 
   # Method called for each log event. It writes the event to the current output
   # file, flushing depending on flush interval configuration.
   public
   def receive(event)
-    @logger.debug("GCS: receive method called", :event => event)
+    @logger.debug('Received event', :event => event)
 
-    if (@output_format == "json")
+    if @output_format == 'json'
       message = LogStash::Json.dump(event.to_hash)
     else
       message = event.to_s
     end
 
-    # Time to roll file based on the date pattern? Or is it over the size limit?
-    if (@path_factory.should_rotate? || (@max_file_size_kbytes > 0 && @temp_file.size >= @max_file_size_kbytes * 1024))
-      @logger.debug("GCS: log file will be closed and uploaded",
-                    :filename => File.basename(@temp_file.to_path),
-                    :size => @temp_file.size.to_s,
-                    :max_size => @max_file_size_kbytes.to_s)
-      # Close does not guarantee that data is physically written to disk.
-      @temp_file.fsync()
-      @temp_file.close()
-
-      if upload_synchronous
-        upload_object(@temp_file.to_path)
-        File.delete(@temp_file.to_path)
-      end
-
-      initialize_next_log()
-    end
-
-    @temp_file.write(message)
-    @temp_file.write("\n")
-
-    sync_log_file()
-
-    @logger.debug("GCS: event appended to log file",
-                  :filename => File.basename(@temp_file.to_path))
+    @log_rotater.writeln(message)
   end
 
   public
   def close
-    @logger.debug("GCS: close method called")
+    @logger.debug('Stopping the plugin, uploading the remaining files.')
+    Stud.stop!(@registration_thread) unless @registration_thread.nil?
 
-    @temp_file.fsync()
-    filename = @temp_file.to_path
-    size = @temp_file.size
-    @temp_file.close()
-
-    if upload_synchronous && size > 0
-      @logger.debug("GCS: uploading last file of #{size.to_s}b")
-      upload_object(filename)
-      File.delete(filename)
-    end
+    @log_rotater.rotate!
+    @workers.stop!
   end
 
   private
-  ##
-  # Flushes temporary log file every flush_interval_secs seconds or so.
-  # This is triggered by events, but if there are no events there's no point
-  # flushing files anyway.
-  #
-  # Inspired by lib/logstash/outputs/file.rb (flush(fd), flush_pending_files)
-  def sync_log_file
-    if flush_interval_secs <= 0
-      @temp_file.fsync()
-      return
-    end
-
-    return unless Time.now - @last_flush_cycle >= flush_interval_secs
-    @temp_file.fsync()
-    @logger.debug("GCS: flushing file",
-                  :path => @temp_file.to_path,
-                  :fd => @temp_file)
-    @last_flush_cycle = Time.now
-  end
 
   ##
   # Creates temporary directory, if it does not exist.
@@ -249,17 +190,14 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # A random suffix is appended to the temporary directory
   def initialize_temp_directory
     require "stud/temporary"
+
     if @temp_directory.empty?
-      @temp_directory = Stud::Temporary.directory("logstash-gcs")
-      @logger.info("GCS: temporary directory generated",
-                   :directory => @temp_directory)
+      @temp_directory = Stud::Temporary.directory('logstash-gcs')
     end
 
-    if !(File.directory? @temp_directory)
-      @logger.debug("GCS: directory doesn't exist. Creating it.",
-                    :directory => @temp_directory)
-      FileUtils.mkdir_p(@temp_directory)
-    end
+    FileUtils.mkdir_p(@temp_directory) unless File.directory?(@temp_directory)
+
+    @logger.info("Using temporary directory: #{@temp_directory}")
   end
 
   def initialize_path_factory
@@ -276,79 +214,11 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   def start_uploader
     Thread.new do
-      @logger.debug("GCS: starting uploader")
-      while true
-        upload_from_queue()
+      @registration_thread = Thread.current
+      Stud.interval(@uploader_interval_secs) do
+        @log_rotater.writeln(nil)
       end
     end
-  end
-  ##
-  # Uploads log files.
-  #
-  # Uploader is done in a separate thread, not holding the receive method above.
-  def upload_from_queue
-    filename = @upload_queue.pop
-
-    # Reenqueue if it is still the current file.
-    if filename == @temp_file.to_path
-      if !@path_factory.should_rotate?
-        @logger.debug("GCS: reenqueue as log file is being currently appended to.",
-                      :filename => filename)
-        @upload_queue << filename
-        # If we got here, it means that older files were uploaded, so let's
-        # wait another minute before checking on this file again.
-        sleep @uploader_interval_secs
-        return
-      else
-        @logger.debug("GCS: flush and close file to be uploaded.",
-                      :filename => filename)
-        @temp_file.fsync()
-        @temp_file.close()
-        initialize_next_log()
-      end
-    end
-
-    if File.stat(filename).size > 0
-      upload_object(filename)
-    else
-      @logger.debug("GCS: file size is zero, skip upload.",
-                     :filename => filename,
-                     :filesize => File.stat(filename).size)
-    end
-    @logger.debug("GCS: delete local temporary file ",
-                  :filename => filename)
-    File.delete(filename)
-  end
-
-  ##
-  # Opens current log file and updates @temp_file with an instance of IOWriter.
-  # This method also adds file to the upload queue.
-  def open_current_file()
-    path = @path_factory.current_path
-
-    stat = File.stat(path) rescue nil
-    if stat and stat.ftype == "fifo" and RUBY_PLATFORM == "java"
-      fd = java.io.FileWriter.new(java.io.File.new(path))
-    else
-      fd = File.new(path, "a")
-    end
-    if @gzip
-      fd = Zlib::GzipWriter.new(fd)
-    end
-    @temp_file = GCSIOWriter.new(fd)
-    unless upload_synchronous
-      @upload_queue << @temp_file.to_path
-    end
-  end
-
-  ##
-  # Generates new log file name based on configuration options and opens log
-  # file. If max file size is enabled, part number if incremented in case the
-  # the base log file name is the same (e.g. log file was not rolled given the
-  # date pattern).
-  def initialize_next_log
-    @path_factory.rotate_path!
-    open_current_file()
   end
 
   ##
@@ -367,15 +237,6 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
                                                          'https://www.googleapis.com/auth/devstorage.read_write',
                                                          key)
     @client.authorization = service_account.authorize
-  end
-
-  # Initialize the queue that harbors files to be uploaded
-  def initialize_upload_queue
-    @upload_queue = new_upload_queue()
-  end
-
-  def new_upload_queue
-    Queue.new
   end
 
   ##
@@ -404,38 +265,28 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
       retry
     end
   end
-end
 
-##
-# Wrapper class that abstracts which IO being used (for instance, regular
-# files or GzipWriter.
-#
-# Inspired by lib/logstash/outputs/file.rb.
-class GCSIOWriter
-  def initialize(io)
-    @io = io
-  end
-  def write(*args)
-    @io.write(*args)
-  end
-  def fsync
-    if @io.class == Zlib::GzipWriter
-      @io.flush
-      @io.to_io.fsync
+  def upload_and_delete(filename)
+    file_size = File.stat(filename).size
+
+    if file_size > 0
+      upload_object(filename)
     else
-      @io.fsync
+      @logger.debug('File size is zero, skip upload.', :filename => filename)
     end
+
+    @logger.debug('Delete local temporary file', :filename => filename)
+    File.delete(filename)
   end
-  def method_missing(method_name, *args, &block)
-    if @io.respond_to?(method_name)
-      @io.send(method_name, *args, &block)
-    else
-      if @io.class == Zlib::GzipWriter && @io.to_io.respond_to?(method_name)
-        @io.to_io.send(method_name, *args, &block)
-      else
-        super
+
+  def initialize_log_rotater
+    max_file_size = @max_file_size_kbytes * 1024
+    @log_rotater = LogStash::Outputs::Gcs::LogRotate.new(@path_factory, max_file_size, @gzip, @flush_interval_seconds)
+
+    @log_rotater.on_rotate do
+      @workers.post do
+        upload_and_delete(filename)
       end
     end
   end
-  attr_accessor :active
 end

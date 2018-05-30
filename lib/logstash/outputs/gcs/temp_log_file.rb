@@ -15,7 +15,7 @@ module LogStash
           @lock = Concurrent::ReentrantReadWriteLock.new
 
           @raw_fd = File.new(path, 'a+')
-          @gz_fd = gzip ? Zlip::GzipWriter.new(@raw_fd) : nil
+          @gz_fd = gzip ? Zlib::GzipWriter.new(@raw_fd) : nil
 
           @fd = @gz_fd || @raw_fd
 
@@ -53,9 +53,7 @@ module LogStash
         end
 
         def to_path
-          @lock.with_read_lock do
-            @path
-          end
+          @path
         end
 
         def time_since_sync
