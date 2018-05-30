@@ -1,11 +1,10 @@
 # encoding: utf-8
-require 'thread'
-require 'zlib'
+require 'logstash/outputs/gcs/temp_log_file'
+require 'concurrent'
 
 module LogStash
   module Outputs
     module Gcs
-      # PathFactory creates paths for rotating files.
       class LogRotate
         def initialize(path_factory, max_file_size_bytes, gzip, flush_interval_secs)
           @path_factory = path_factory
@@ -13,106 +12,62 @@ module LogStash
           @gzip = gzip
           @flush_interval_secs = flush_interval_secs
 
+          @lock = Concurrent::ReentrantReadWriteLock.new
+          @rotate_callback = nil
+
           rotate_log!
         end
 
-        def write(message=nil)
-          if should_rotate?
-            old_path = initialize_next_log!
-            yield old_path unless old_path.nil?
-          end
+        # writeln writes a message and carriage-return character to the open
+        # log file, rotating and syncing it if necessary.
+        #
+        # nil messages do not get written, but may cause the log to rotate
+        def writeln(message=nil)
+          @lock.with_write_lock do
+            rotate_log! if should_rotate?
 
-          unless message.nil?
-            @temp_file.write(message)
-            @temp_file.write('\n')
-          end
+            @temp_file.writeln(message) unless message.nil?
 
-          sync_log_file
+            @temp_file.fsync if @temp_file.time_since_sync >= @flush_interval_secs
+          end
         end
 
+        # rotate_log! closes the current log (if it exists), notifies the
+        # handler, rolls the path over and opens a new log.
+        #
+        # Invariant: the old log will ALWAYS be closed and a new one will
+        # ALWAYS be open at the completion of this function.
         def rotate_log!
-          old_path = initialize_next_log!
-          yield old_path unless old_path.nil?
+          @lock.with_write_lock do
+            unless @temp_file.nil?
+              @temp_file.close!
+              @rotate_callback.call(@temp_file.to_path) unless @rotate_callback.nil?
+            end
+
+            @path_factory.rotate_path!
+
+            path = @path_factory.current_path
+            @temp_file = LogStash::Outputs::Gcs::TempLogFile.new(path, @gzip)
+          end
+        end
+
+        # on_rotate sets a handler to be called when the log gets rotated.
+        # The handler receives the path to the rotated out log as a string.
+        def on_rotate(&block)
+          @lock.with_write_lock do
+            @rotate_callback = block
+          end
         end
 
         private
 
         def should_rotate?
-          path_changed = @path_factory.should_rotate?
-          too_big = @max_file_size_bytes > 0 && @temp_file.size >= @max_file_size_bytes
+          @lock.with_read_lock do
+            path_changed = @path_factory.should_rotate?
+            rotate_on_size = @max_file_size_bytes > 0
+            too_big = @temp_file.size >= @max_file_size_bytes
 
-          path_changed || too_big
-        end
-
-        def initialize_next_log!
-          if @temp_file.nil?
-            old_path = nil
-          else
-            old_path = @temp_file.to_path
-            @temp_file.fsync
-            @temp_file.close
-          end
-
-          @path_factory.rotate_path!
-          open_current_file
-
-          old_path
-        end
-
-        def open_current_file
-          path = @path_factory.current_path
-
-          fd = File.new(path, 'a')
-          fd = Zlib::GzipWriter.new(fd) if @gzip
-
-          @temp_file = GCSIOWriter.new(fd)
-        end
-
-        def sync_log_file
-          now = Time.now
-          @last_flush_cycle = @last_flush_cycle || now
-
-          if now - @last_flush_cycle >= @flush_interval_secs
-            @temp_file.fsync
-            @last_flush_cycle = now
-          end
-        end
-      end
-
-      ##
-      # Wrapper class that abstracts which IO being used (for instance, regular
-      # files or GzipWriter.
-      #
-      # Inspired by lib/logstash/outputs/file.rb.
-      class GCSIOWriter
-        attr_accessor :active
-
-        def initialize(io)
-          @io = io
-        end
-
-        def write(*args)
-          @io.write(*args)
-        end
-
-        def fsync
-          if @io.class == Zlib::GzipWriter
-            @io.flush
-            @io.to_io.fsync
-          else
-            @io.fsync
-          end
-        end
-
-        def method_missing(method_name, *args, &block)
-          if @io.respond_to?(method_name)
-            @io.send(method_name, *args, &block)
-          else
-            if @io.class == Zlib::GzipWriter && @io.to_io.respond_to?(method_name)
-              @io.to_io.send(method_name, *args, &block)
-            else
-              super
-            end
+            path_changed || (rotate_on_size && too_big)
           end
         end
       end
