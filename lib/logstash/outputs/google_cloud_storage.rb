@@ -177,7 +177,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     @logger.debug('Stopping the plugin, uploading the remaining files.')
     Stud.stop!(@registration_thread) unless @registration_thread.nil?
 
-    @log_rotater.rotate!
+    @log_rotater.rotate_log!
     @workers.stop!
   end
 
@@ -282,7 +282,8 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     max_file_size = @max_file_size_kbytes * 1024
     @log_rotater = LogStash::Outputs::Gcs::LogRotate.new(@path_factory, max_file_size, @gzip, @flush_interval_secs)
 
-    @log_rotater.on_rotate do
+    @log_rotater.on_rotate do |filename|
+      @logger.info("Rotated out file: #{filename}")
       @workers.post do
         upload_and_delete(filename)
       end
