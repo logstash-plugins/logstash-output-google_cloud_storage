@@ -6,59 +6,96 @@ require 'time'
 module LogStash
   module Outputs
     module Gcs
+      class LogFileFactory
+        def self.create(path, gzip, synchronize=true)
+          lf = LogStash::Outputs::Gcs::PlainLogFile.new(path)
+          lf = LogStash::Outputs::Gcs::GzipLogFile.new(lf) if gzip
+          lf = LogStash::Outputs::Gcs::SynchronizedLogFile.new(lf) if synchronize
+
+          lf
+        end
+      end
+
       # TempLogFile writes events to a file.
-      class TempLogFile
-        attr_reader :fd
+      class PlainLogFile
+        attr_reader :path, :fd
 
-        def initialize(path, gzip)
+        def initialize(path)
           @path = path
-          @lock = Concurrent::ReentrantReadWriteLock.new
-
-          @raw_fd = File.new(path, 'a+')
-          @gz_fd = gzip ? Zlib::GzipWriter.new(@raw_fd) : nil
-
-          @fd = @gz_fd || @raw_fd
-
+          @fd = ::File.new(path, 'a+')
           @last_sync = Time.now
         end
 
-        def writeln(line)
-          @lock.with_write_lock do
-            @fd.write(line)
-            @fd.write('\n')
-          end
+        def write(*contents)
+          contents.each { |c| @fd.write(c) }
         end
 
         def fsync
-          @lock.with_write_lock do
-            @gz_fd.flush unless @gz_fd.nil?
-            @raw_fd.fsync
-            @last_sync = Time.now
-          end
+          @fd.fsync
+          @last_sync = Time.now
         end
 
         def close!
-          @lock.with_write_lock do
-            fsync
-
-            @gz_fd.close unless @gz_fd.nil?
-            @raw_fd.close
-          end
+          @fd.fsync
+          @fd.close
         end
 
         def size
-          @lock.with_read_lock do
-            File.stat(@path).size
-          end
-        end
-
-        def to_path
-          @path
+          ::File.stat(@path).size
         end
 
         def time_since_sync
-          @lock.with_read_lock do
-            Time.now - @last_sync
+          Time.now - @last_sync
+        end
+      end
+
+      class GzipLogFile
+        attr_reader :fd
+
+        def initialize(child)
+          @child = child
+          @fd = Zlib::GzipWriter.new(child.fd)
+        end
+
+        def write(*contents)
+          contents.each { |c| @fd.write(c) }
+        end
+
+        def fsync
+          @fd.flush
+          @child.fsync
+        end
+
+        def close!
+          fsync
+          # The Gzip writer closes the underlying IO after
+          # appending the Gzip footer.
+          @fd.close
+        end
+
+        def method_missing(method_name, *args, &block)
+          @child.send(method_name, *args, &block)
+        end
+      end
+
+      class SynchronizedLogFile
+        def initialize(child)
+          @child = child
+          @lock = Concurrent::ReentrantReadWriteLock.new
+        end
+
+        def time_since_sync
+          @lock.with_read_lock { @child.time_since_sync }
+        end
+
+        def path
+          @lock.with_read_lock { @child.path }
+        end
+
+        def method_missing(method_name, *args, &block)
+          # unless otherwise specified, get a write lock
+          @lock.with_write_lock do
+            @child.send(method_name, *args, &block)
           end
         end
       end

@@ -26,7 +26,7 @@ module LogStash
           @lock.with_write_lock do
             rotate_log! if should_rotate?
 
-            @temp_file.writeln(message) unless message.nil?
+            @temp_file.write(message, "\n") unless message.nil?
 
             @temp_file.fsync if @temp_file.time_since_sync >= @flush_interval_secs
           end
@@ -41,13 +41,13 @@ module LogStash
           @lock.with_write_lock do
             unless @temp_file.nil?
               @temp_file.close!
-              @rotate_callback.call(@temp_file.to_path) unless @rotate_callback.nil?
+              @rotate_callback.call(@temp_file.path) unless @rotate_callback.nil?
             end
 
             @path_factory.rotate_path!
 
             path = @path_factory.current_path
-            @temp_file = LogStash::Outputs::Gcs::TempLogFile.new(path, @gzip)
+            @temp_file = LogStash::Outputs::Gcs::LogFileFactory.create(path, @gzip)
           end
         end
 

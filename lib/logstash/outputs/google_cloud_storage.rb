@@ -144,7 +144,6 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   public
   def register
     @logger.debug('Registering Google Cloud Storage plugin')
-    @last_flush_cycle = Time.now
 
     @workers = LogStash::Outputs::Gcs::WorkerPool.new(@max_concurrent_uploads, @upload_synchronous)
     initialize_temp_directory
@@ -281,7 +280,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   def initialize_log_rotater
     max_file_size = @max_file_size_kbytes * 1024
-    @log_rotater = LogStash::Outputs::Gcs::LogRotate.new(@path_factory, max_file_size, @gzip, @flush_interval_seconds)
+    @log_rotater = LogStash::Outputs::Gcs::LogRotate.new(@path_factory, max_file_size, @gzip, @flush_interval_secs)
 
     @log_rotater.on_rotate do
       @workers.post do
