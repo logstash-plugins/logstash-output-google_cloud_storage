@@ -6,6 +6,9 @@ require 'time'
 module LogStash
   module Outputs
     module Gcs
+      # LogFileFactory creates a LogFile according to user specification
+      # optionally gzipping it and creating mutexes around modification
+      # points.
       class LogFileFactory
         def self.create(path, gzip, synchronize=true)
           lf = LogStash::Outputs::Gcs::PlainLogFile.new(path)
@@ -16,7 +19,7 @@ module LogStash
         end
       end
 
-      # TempLogFile writes events to a file.
+      # PlainLogFile writes events to a plain text file.
       class PlainLogFile
         attr_reader :path, :fd
 
@@ -49,6 +52,7 @@ module LogStash
         end
       end
 
+      # GzipLogFile wraps another log file and writes events through it.
       class GzipLogFile
         attr_reader :fd
 
@@ -78,6 +82,8 @@ module LogStash
         end
       end
 
+      # SynchronizedLogFile wraps another log file and uses reentrant locks
+      # around its methods to prevent concurrent modification.
       class SynchronizedLogFile
         def initialize(child)
           @child = child

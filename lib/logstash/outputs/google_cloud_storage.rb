@@ -177,6 +177,8 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     @logger.debug('Stopping the plugin, uploading the remaining files.')
     Stud.stop!(@registration_thread) unless @registration_thread.nil?
 
+    # Force rotate the log. If it contains data it will be submitted
+    # to the work pool and will be uploaded before the plugin stops.
     @log_rotater.rotate_log!
     @workers.stop!
   end
@@ -211,6 +213,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     end
   end
 
+  # start_uploader periodically sends flush events through the log rotater
   def start_uploader
     Thread.new do
       @registration_thread = Thread.current
