@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name            = 'logstash-output-google_cloud_storage'
-  s.version         = '3.0.2'
-  s.licenses        = ['Apache License (2.0)']
+  s.version         = '3.2.1'
+  s.licenses        = ['Apache-2.0']
   s.summary         = "plugin to upload log events to Google Cloud Storage (GCS)"
   s.description     = "This gem is a Logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/logstash-plugin install gemname. This gem is not a stand-alone program"
   s.authors         = ["Elastic"]
@@ -25,7 +25,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'google-api-client', '~> 0.8.7' # version 0.9.x works only with ruby 2.x
   s.add_runtime_dependency 'logstash-codec-plain'
   s.add_runtime_dependency 'mime-types', '~> 2' # last version compatible with ruby 2.x
-
+  s.add_runtime_dependency 'concurrent-ruby', '1.0.5'
   s.add_development_dependency 'logstash-devutils'
 end
 

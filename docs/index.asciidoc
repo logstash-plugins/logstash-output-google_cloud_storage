@@ -1,5 +1,6 @@
 :plugin: google_cloud_storage
 :type: output
+:default_codec: plain
 
 ///////////////////////////////////////////
 START - GENERATED VARIABLES, DO NOT EDIT!
@@ -7,14 +8,14 @@ START - GENERATED VARIABLES, DO NOT EDIT!
 :version: %VERSION%
 :release_date: %RELEASE_DATE%
 :changelog_url: %CHANGELOG_URL%
-:include_path: ../../../logstash/docs/include
+:include_path: ../../../../logstash/docs/include
 ///////////////////////////////////////////
 END - GENERATED VARIABLES, DO NOT EDIT!
 ///////////////////////////////////////////
 
-[id="plugins-{type}-{plugin}"]
+[id="plugins-{type}s-{plugin}"]
 
-=== Google_cloud_storage
+=== Google_cloud_storage output plugin
 
 include::{include_path}/plugin_header.asciidoc[]
 
@@ -57,6 +58,8 @@ output {
      gzip => false                                             (optional)
      gzip_content_encoding => false                            (optional)
      uploader_interval_secs => 60                              (optional)
+     include_uuid => true                                      (optional)
+     include_hostname => true                                  (optional)
    }
 }
 --------------------------
@@ -72,7 +75,7 @@ exposed by Ruby API client)
 [id="plugins-{type}s-{plugin}-options"]
 ==== Google_cloud_storage Output Configuration Options
 
-This plugin supports the following configuration options plus the <<plugins-{type}s-common-options>> described later.
+This plugin supports the following configuration options plus the <<plugins-{type}s-{plugin}-common-options>> described later.
 
 [cols="<,<,<",options="header",]
 |=======================================================================
@@ -82,9 +85,12 @@ This plugin supports the following configuration options plus the <<plugins-{typ
 | <<plugins-{type}s-{plugin}-flush_interval_secs>> |<<number,number>>|No
 | <<plugins-{type}s-{plugin}-gzip>> |<<boolean,boolean>>|No
 | <<plugins-{type}s-{plugin}-gzip_content_encoding>> |<<boolean,boolean>>|No
+| <<plugins-{type}s-{plugin}-include_hostname>> |<<boolean,boolean>>|No
+| <<plugins-{type}s-{plugin}-include_uuid>> |<<boolean,boolean>>|No
 | <<plugins-{type}s-{plugin}-key_password>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-key_path>> |<<string,string>>|Yes
 | <<plugins-{type}s-{plugin}-log_file_prefix>> |<<string,string>>|No
+| <<plugins-{type}s-{plugin}-max_concurrent_uploads>> |<<number,number>>|No
 | <<plugins-{type}s-{plugin}-max_file_size_kbytes>> |<<number,number>>|No
 | <<plugins-{type}s-{plugin}-output_format>> |<<string,string>>, one of `["json", "plain"]`|No
 | <<plugins-{type}s-{plugin}-service_account>> |<<string,string>>|Yes
@@ -92,7 +98,7 @@ This plugin supports the following configuration options plus the <<plugins-{typ
 | <<plugins-{type}s-{plugin}-uploader_interval_secs>> |<<number,number>>|No
 |=======================================================================
 
-Also see <<plugins-{type}s-common-options>> for a list of options supported by all
+Also see <<plugins-{type}s-{plugin}-common-options>> for a list of options supported by all
 output plugins.
 
 &nbsp;
@@ -143,6 +149,32 @@ use file suffix `.log.gz` instead of `.log`.
 Gzip output stream when writing events to log files and set
 `Content-Encoding` to `gzip`.
 
+[id="plugins-{type}s-{plugin}-include_hostname"]
+===== `include_hostname`
+
+added[3.1.0]
+
+  * Value type is <<boolean,boolean>>
+  * Default value is `true`
+
+Should the hostname be included in the file name?
+You may want to turn this off for privacy reasons or if you are running multiple
+instances of Logstash and need to match the files you create with a simple glob
+such as if you wanted to import files to BigQuery.
+
+
+[id="plugins-{type}s-{plugin}-include_uuid"]
+===== `include_uuid`
+
+added[3.1.0]
+
+  * Value type is <<boolean,boolean>>
+  * Default value is `false`
+
+Adds a UUID to the end of a file name.
+You may want to enable this feature so files don't clobber one another if you're
+running multiple instances of Logstash or if you expect frequent node restarts.
+
 [id="plugins-{type}s-{plugin}-key_password"]
 ===== `key_password` 
 
@@ -168,6 +200,17 @@ GCS path to private key file.
 
 Log file prefix. Log file will follow the format:
 <prefix>_hostname_date<.part?>.log
+
+[id="plugins-{type}s-{plugin}-max_concurrent_uploads"]
+===== `max_concurrent_uploads`
+
+  * Value type is <<number,number>>
+  * Default value is `5`
+
+Sets the maximum number of concurrent uploads to Cloud Storage at a time.
+Uploads are I/O bound so it makes sense to tune this paramater with regards
+to the network bandwidth available and the latency between your server and
+Cloud Storage.
 
 [id="plugins-{type}s-{plugin}-max_file_size_kbytes"]
 ===== `max_file_size_kbytes` 

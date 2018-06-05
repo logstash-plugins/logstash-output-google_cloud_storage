@@ -1,12 +1,16 @@
 # encoding: utf-8
 require_relative "../spec_helper"
 require "google/api_client"
+require "tempfile"
 
 describe LogStash::Outputs::GoogleCloudStorage do
-  
+
   let(:client) { double("google-client") }
   let(:service_account) { double("service-account") }
   let(:key)    { "key" }
+
+  subject { described_class.new(config) }
+  let(:config) { {"bucket" => "", "key_path" => "", "service_account" => "", "uploader_interval_secs" => 0.1, "upload_synchronous" => true} }
 
   before(:each) do
     allow(Google::APIClient).to receive(:new).and_return(client)
@@ -18,7 +22,6 @@ describe LogStash::Outputs::GoogleCloudStorage do
   end
 
   it "should register without errors" do
-    plugin = LogStash::Plugin.lookup("output", "google_cloud_storage").new({"bucket" => "", "key_path" => "", "service_account" => ""})
-    expect { plugin.register }.to_not raise_error
+    expect { subject.register }.to_not raise_error
   end
 end
