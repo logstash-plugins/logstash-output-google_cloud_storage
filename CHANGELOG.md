@@ -1,3 +1,31 @@
+## 3.3.0
+Added the ability to set `gzip` as `Content-Encoding`.
+This saves storage size but still allows uncompressed downloads.
+
+- Fixes [#13](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/13) - Use `gzip` for `Content-Encoding` instead of `Content-Type`
+
+## 3.2.1
+  - Refactoring work to add locks to file rotation and writing.
+    - Fixes [#2](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/2) - Plugin crashes on file rotation.
+    - Fixes [#19](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/19) - Deleted files remain in use by the system eventually filling up disk space.
+
+## 3.2.0
+  - Change uploads to use a job pool for better performance
+    - Fixes [#22](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/22) - Refactor Job Queue Architecture
+    - Fixes [#5](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/5) - Major Performance Issues
+  - Wait for files to upload before Logstash quits
+    - Fixes [#15](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/15) - Fails to upload files when Logstash exits
+
+## 3.1.0
+  - Add support for disabling hostname in the log file names
+  - Add support for adding a UUID to the log file names
+
+## 3.0.5
+  - Docs: Set the default_codec doc attribute.
+
+## 3.0.4
+  - Fix some documentation issues
+
 ## 3.0.2
   - Docs: Fix doc formatting
 
