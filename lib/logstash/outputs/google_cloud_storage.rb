@@ -21,6 +21,7 @@
 require "logstash/outputs/base"
 require "logstash/outputs/gcs/path_factory"
 require "logstash/outputs/gcs/worker_pool"
+require "logstash/outputs/gcs/log_rotate"
 require "logstash/namespace"
 require "logstash/json"
 require "stud/interval"
@@ -142,89 +143,47 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   public
   def register
-    require "fileutils"
-    @logger.debug("GCS: register plugin")
-    @last_flush_cycle = Time.now
+    @logger.debug('Registering Google Cloud Storage plugin')
 
     @workers = LogStash::Outputs::Gcs::WorkerPool.new(@max_concurrent_uploads, @upload_synchronous)
-    initialize_temp_directory()
+    initialize_temp_directory
     initialize_path_factory
-    open_current_file
+    initialize_log_rotater
 
-    initialize_google_client()
+    initialize_google_client
 
     start_uploader
 
-    if @gzip
-      @content_type = 'application/gzip'
-    else
-      @content_type = 'text/plain'
-    end
+    @content_type = @gzip ? 'application/gzip' : 'text/plain'
   end
 
   # Method called for each log event. It writes the event to the current output
   # file, flushing depending on flush interval configuration.
   public
   def receive(event)
-    @logger.debug("GCS: receive method called", :event => event)
+    @logger.debug('Received event', :event => event)
 
-    if (@output_format == "json")
+    if @output_format == 'json'
       message = LogStash::Json.dump(event.to_hash)
     else
       message = event.to_s
     end
 
-    # Time to roll file based on the date pattern? Or is it over the size limit?
-    initialize_next_log if ready_to_rotate?
-
-    @temp_file.write(message)
-    @temp_file.write("\n")
-
-    sync_log_file()
-
-    @logger.debug("GCS: event appended to log file",
-                  :filename => File.basename(@temp_file.to_path))
+    @log_rotater.writeln(message)
   end
 
   public
   def close
     @logger.debug('Stopping the plugin, uploading the remaining files.')
-
     Stud.stop!(@registration_thread) unless @registration_thread.nil?
 
-    close_and_upload_current
+    # Force rotate the log. If it contains data it will be submitted
+    # to the work pool and will be uploaded before the plugin stops.
+    @log_rotater.rotate_log!
     @workers.stop!
   end
 
   private
-
-
-  def ready_to_rotate?
-    path_changed = @path_factory.should_rotate?
-    too_big = @max_file_size_kbytes > 0 && @temp_file.size >= @max_file_size_kbytes * 1024
-
-    path_changed || too_big
-  end
-
-  ##
-  # Flushes temporary log file every flush_interval_secs seconds or so.
-  # This is triggered by events, but if there are no events there's no point
-  # flushing files anyway.
-  #
-  # Inspired by lib/logstash/outputs/file.rb (flush(fd), flush_pending_files)
-  def sync_log_file
-    if flush_interval_secs <= 0
-      @temp_file.fsync()
-      return
-    end
-
-    return unless Time.now - @last_flush_cycle >= flush_interval_secs
-    @temp_file.fsync()
-    @logger.debug("GCS: flushing file",
-                  :path => @temp_file.to_path,
-                  :fd => @temp_file)
-    @last_flush_cycle = Time.now
-  end
 
   ##
   # Creates temporary directory, if it does not exist.
@@ -232,17 +191,14 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # A random suffix is appended to the temporary directory
   def initialize_temp_directory
     require "stud/temporary"
+
     if @temp_directory.empty?
-      @temp_directory = Stud::Temporary.directory("logstash-gcs")
-      @logger.info("GCS: temporary directory generated",
-                   :directory => @temp_directory)
+      @temp_directory = Stud::Temporary.directory('logstash-gcs')
     end
 
-    if !(File.directory? @temp_directory)
-      @logger.debug("GCS: directory doesn't exist. Creating it.",
-                    :directory => @temp_directory)
-      FileUtils.mkdir_p(@temp_directory)
-    end
+    FileUtils.mkdir_p(@temp_directory) unless File.directory?(@temp_directory)
+
+    @logger.info("Using temporary directory: #{@temp_directory}")
   end
 
   def initialize_path_factory
@@ -257,42 +213,14 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     end
   end
 
+  # start_uploader periodically sends flush events through the log rotater
   def start_uploader
     Thread.new do
       @registration_thread = Thread.current
       Stud.interval(@uploader_interval_secs) do
-        initialize_next_log if ready_to_rotate?
+        @log_rotater.writeln(nil)
       end
     end
-  end
-
-  ##
-  # Opens current log file and updates @temp_file with an instance of IOWriter.
-  # This method also adds file to the upload queue.
-  def open_current_file
-    path = @path_factory.current_path
-
-    stat = File.stat(path) rescue nil
-    if stat and stat.ftype == "fifo" and RUBY_PLATFORM == "java"
-      fd = java.io.FileWriter.new(java.io.File.new(path))
-    else
-      fd = File.new(path, "a")
-    end
-    if @gzip
-      fd = Zlib::GzipWriter.new(fd)
-    end
-    @temp_file = GCSIOWriter.new(fd)
-  end
-
-  ##
-  # Generates new log file name based on configuration options and opens log
-  # file. If max file size is enabled, part number if incremented in case the
-  # the base log file name is the same (e.g. log file was not rolled given the
-  # date pattern).
-  def initialize_next_log
-    close_and_upload_current
-    @path_factory.rotate_path!
-    open_current_file()
   end
 
   ##
@@ -340,19 +268,6 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     end
   end
 
-  def close_and_upload_current
-    return if @temp_file.nil?
-
-    filename = @temp_file.to_path
-    @temp_file.fsync
-    @temp_file.close
-    @logger.info("Uploading file: #{filename}")
-
-    @workers.post do
-      upload_and_delete(filename)
-    end
-  end
-
   def upload_and_delete(filename)
     file_size = File.stat(filename).size
 
@@ -365,38 +280,16 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     @logger.debug('Delete local temporary file', :filename => filename)
     File.delete(filename)
   end
-end
 
-##
-# Wrapper class that abstracts which IO being used (for instance, regular
-# files or GzipWriter.
-#
-# Inspired by lib/logstash/outputs/file.rb.
-class GCSIOWriter
-  def initialize(io)
-    @io = io
-  end
-  def write(*args)
-    @io.write(*args)
-  end
-  def fsync
-    if @io.class == Zlib::GzipWriter
-      @io.flush
-      @io.to_io.fsync
-    else
-      @io.fsync
-    end
-  end
-  def method_missing(method_name, *args, &block)
-    if @io.respond_to?(method_name)
-      @io.send(method_name, *args, &block)
-    else
-      if @io.class == Zlib::GzipWriter && @io.to_io.respond_to?(method_name)
-        @io.to_io.send(method_name, *args, &block)
-      else
-        super
+  def initialize_log_rotater
+    max_file_size = @max_file_size_kbytes * 1024
+    @log_rotater = LogStash::Outputs::Gcs::LogRotate.new(@path_factory, max_file_size, @gzip, @flush_interval_secs)
+
+    @log_rotater.on_rotate do |filename|
+      @logger.info("Rotated out file: #{filename}")
+      @workers.post do
+        upload_and_delete(filename)
       end
     end
   end
-  attr_accessor :active
 end

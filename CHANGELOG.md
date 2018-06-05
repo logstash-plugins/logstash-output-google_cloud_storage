@@ -1,3 +1,8 @@
+## 3.2.1
+  - Refactoring work to add locks to file rotation and writing.
+    - Fixes [#2](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/2) - Plugin crashes on file rotation.
+    - Fixes [#19](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/19) - Deleted files remain in use by the system eventually filling up disk space.
+
 ## 3.2.0
   - Change uploads to use a job pool for better performance
     - Fixes [#22](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/22) - Refactor Job Queue Architecture

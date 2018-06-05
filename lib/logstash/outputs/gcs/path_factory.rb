@@ -30,13 +30,16 @@ module LogStash
 
         # Rotates the path to the next one in sequence. If the path has a part number
         # and the base path (date/hostname) haven't changed the part number is incremented.
+        # Returns the path that was rotated out
         def rotate_path!
+          last_path = current_path
+
           @path_lock.synchronize {
             @part_number = (next_base == current_base) ? @part_number + 1 : 0
             @current = template_variables
           }
 
-          current_path
+          last_path
         end
 
         # Checks if the file is ready to rotate because the timestamp changed.

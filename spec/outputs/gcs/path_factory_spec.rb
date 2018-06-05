@@ -125,7 +125,7 @@ describe LogStash::Outputs::Gcs::PathFactory do
       expect(pf.current_path).to include('part000')
     end
 
-    it 'returns the current_path' do
+    it 'returns the path being rotated out' do
       pf = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
         builder.set_directory 'dir'
         builder.set_prefix 'pre'
@@ -135,8 +135,9 @@ describe LogStash::Outputs::Gcs::PathFactory do
         builder.set_include_uuid false
         builder.set_is_gzipped false
       end
+      last = pf.current_path
       after = pf.rotate_path!
-      expect(after).to eq(File.join('dir', 'pre_date.part001.log'))
+      expect(after).to eq(last)
     end
   end
 
@@ -151,7 +152,7 @@ describe LogStash::Outputs::Gcs::PathFactory do
         builder.set_include_uuid false
         builder.set_is_gzipped false
       end
-      sleep 0.1
+      sleep 1.0
       expect(pf.should_rotate?).to eq(false)
     end
 
@@ -165,7 +166,7 @@ describe LogStash::Outputs::Gcs::PathFactory do
         builder.set_include_uuid false
         builder.set_is_gzipped false
       end
-      sleep 0.1
+      sleep 1.0
       expect(pf.should_rotate?).to eq(true)
     end
   end
