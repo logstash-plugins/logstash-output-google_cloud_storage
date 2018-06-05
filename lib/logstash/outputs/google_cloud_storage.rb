@@ -162,11 +162,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     start_uploader
 
     @content_type = @gzip ? 'application/gzip' : 'text/plain'
-    if @gzip_content_encoding
-      @content_encoding = 'gzip'
-    else
-      @content_encoding = 'identity'
-    end
+    @content_encoding = @gzip_content_encoding ? 'gzip' : 'identity'
   end
 
   # Method called for each log event. It writes the event to the current output
@@ -296,7 +292,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   def initialize_log_rotater
     max_file_size = @max_file_size_kbytes * 1024
-    @log_rotater = LogStash::Outputs::Gcs::LogRotate.new(@path_factory, max_file_size, @gzip, @flush_interval_secs)
+    @log_rotater = LogStash::Outputs::Gcs::LogRotate.new(@path_factory, max_file_size, @gzip, @flush_interval_secs, @gzip_content_encoding)
 
     @log_rotater.on_rotate do |filename|
       @logger.info("Rotated out file: #{filename}")

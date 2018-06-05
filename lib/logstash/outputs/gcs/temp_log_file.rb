@@ -10,9 +10,10 @@ module LogStash
       # optionally gzipping it and creating mutexes around modification
       # points.
       class LogFileFactory
-        def self.create(path, gzip, synchronize=true)
+        def self.create(path, gzip, synchronize=true, gzip_encoded=false)
           lf = LogStash::Outputs::Gcs::PlainLogFile.new(path)
           lf = LogStash::Outputs::Gcs::GzipLogFile.new(lf) if gzip
+          lf = LogStash::Outputs::Gcs::GzipLogFile.new(lf) if gzip_encoded
           lf = LogStash::Outputs::Gcs::SynchronizedLogFile.new(lf) if synchronize
 
           lf

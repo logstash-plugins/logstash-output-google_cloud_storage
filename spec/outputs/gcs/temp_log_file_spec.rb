@@ -117,3 +117,39 @@ describe LogStash::Outputs::Gcs::SynchronizedLogFile do
 
   it_behaves_like 'a log file'
 end
+
+describe 'gzip encoded file' do
+  let(:tempdir) { Stud::Temporary.directory }
+  let(:path) { ::File.join(tempdir, 'logfile.log') }
+  subject { LogStash::Outputs::Gcs::LogFileFactory.create(path, false, false, true) }
+
+  it_behaves_like 'a log file'
+
+  it 'creates a valid gzip' do
+    subject.write('Hello, world!')
+    subject.close!
+
+    Zlib::GzipReader.open(path) do |gz|
+      expect(gz.read).to eq('Hello, world!')
+    end
+  end
+end
+
+describe 'double gzip encoded file' do
+  let(:tempdir) { Stud::Temporary.directory }
+  let(:path) { ::File.join(tempdir, 'logfile.log') }
+  subject { LogStash::Outputs::Gcs::LogFileFactory.create(path, true, false, true) }
+
+  it_behaves_like 'a log file'
+
+  it 'creates a valid double gzip' do
+    subject.write('Hello, world!')
+    subject.close!
+
+    Zlib::GzipReader.open(path) do |outer|
+      Zlib::GzipReader.new(outer) do |inner|
+        expect(inner.read).to eq('Hello, world!')
+      end
+    end
+  end
+end

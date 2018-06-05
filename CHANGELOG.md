@@ -1,3 +1,9 @@
+## 3.3.0
+Added the ability to set `gzip` as `Content-Encoding`.
+This saves storage size but still allows uncompressed downloads.
+
+- Fixes [#13](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/13) - Use `gzip` for `Content-Encoding` instead of `Content-Type`
+
 ## 3.2.1
   - Refactoring work to add locks to file rotation and writing.
     - Fixes [#2](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/2) - Plugin crashes on file rotation.

@@ -143,6 +143,8 @@ use file suffix `.log.gz` instead of `.log`.
 [id="plugins-{type}s-{plugin}-gzip_content_encoding"]
 ===== `gzip_content_encoding`
 
+added[3.3.0]
+
   * Value type is <<boolean,boolean>>
   * Default value is `false`
 
