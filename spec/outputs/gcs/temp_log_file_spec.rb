@@ -68,7 +68,7 @@ shared_examples 'a log file' do
 
   describe '#time_since_sync' do
     it 'returns a delta' do
-      expect(Time).to receive(:now).and_return(30, 40, 50)
+      expect(Time).to receive(:now).and_return(Time.at(30), Time.at(40), Time.at(50))
 
       subject.fsync
 
