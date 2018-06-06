@@ -8,7 +8,7 @@ describe LogStash::Outputs::GoogleCloudStorage do
   let(:javastorage) { double("google-java-client-storage") }
 
   subject { described_class.new(config) }
-  let(:config) { {"bucket" => "", "key_path" => "", "service_account" => "", "uploader_interval_secs" => 0.1, "upload_synchronous" => true} }
+  let(:config) { {"bucket" => "", "uploader_interval_secs" => 0.1, "upload_synchronous" => true} }
 
   before(:each) do
     allow(LogStash::Outputs::Gcs::Client).to receive(:new).and_return(:javaclient)
