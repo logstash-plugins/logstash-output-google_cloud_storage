@@ -145,7 +145,6 @@ on every message.
 
 Gzip output stream when writing events to log files.
 
-
 [id="plugins-{type}s-{plugin}-include_hostname"]
 ===== `include_hostname`
 
@@ -185,7 +184,6 @@ if it's running on Compute Engine, Kubernetes Engine, App Engine, or Cloud Funct
 Outside of Google Cloud, you will need create a Service Account JSON key file through the
 web interface or with the following command:
 `gcloud iam service-accounts keys create key.json --iam-account my-sa-123@my-project-123.iam.gserviceaccount.com`
-
 
 [id="plugins-{type}s-{plugin}-key_password"]
 ===== `key_password` 
