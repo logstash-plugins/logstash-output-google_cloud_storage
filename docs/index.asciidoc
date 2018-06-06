@@ -148,8 +148,17 @@ added[3.3.0]
   * Value type is <<boolean,boolean>>
   * Default value is `false`
 
-Gzip output stream when writing events to log files and set
-`Content-Encoding` to `gzip`.
+Gzip output stream when writing events to log files and set `Content-Encoding` to `gzip`.
+This will upload your files as `gzip` saving network and storage costs, but they will be
+transparently decompressed when you read them from the storage bucket.
+
+See the Cloud Storage documentation on https://cloud.google.com/storage/docs/metadata#content-encoding[metadata] and 
+https://cloud.google.com/storage/docs/transcoding#content-type_vs_content-encoding[transcoding]
+for more information.
+
+**Note**: It is not recommended to use both `gzip_content_encoding` and `gzip`.
+This compresses your file _twice_, will increase the work your machine does and makes 
+the files larger than just compressing once.
 
 [id="plugins-{type}s-{plugin}-include_hostname"]
 ===== `include_hostname`
