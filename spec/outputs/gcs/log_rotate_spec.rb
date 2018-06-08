@@ -27,7 +27,7 @@ describe LogStash::Outputs::Gcs::LogRotate do
     end
   end
 
-  describe '#writeln' do
+  describe '#write' do
     subject { LogStash::Outputs::Gcs::LogRotate.new(path_factory, 10, false, 30) }
 
     it 'does not rotate if size is small and path is the same' do
@@ -35,15 +35,15 @@ describe LogStash::Outputs::Gcs::LogRotate do
       # once for init
       expect(path_factory).to receive(:rotate_path!).once
 
-      subject.writeln('foo')
+      subject.write('foo')
     end
 
     it 'rotates the file if the size is too big' do
       # once for init, once for writeln
       expect(path_factory).to receive(:rotate_path!).twice
 
-      subject.writeln('this line is longer than ten characters' * 1000)
-      subject.writeln('flush')
+      subject.write('this line is longer than ten characters' * 1000)
+      subject.write('flush')
     end
 
     it 'rotates the file if the path changed' do
@@ -51,35 +51,35 @@ describe LogStash::Outputs::Gcs::LogRotate do
       # once for init, once for writeln
       expect(path_factory).to receive(:rotate_path!).twice
 
-      subject.writeln('foo')
+      subject.write('foo')
     end
 
     it 'writes the message' do
       expect(LogStash::Outputs::Gcs::LogFileFactory).to receive(:create).and_return(open_file_1)
-      expect(open_file_1).to receive(:write).with('foo', "\n")
+      expect(open_file_1).to receive(:write).with('foo', 'bar')
 
-      subject.writeln('foo')
+      subject.write('foo', 'bar')
     end
 
-    it 'does not write nil messages' do
+    it 'does not write if there are no parameters' do
       expect(LogStash::Outputs::Gcs::LogFileFactory).to receive(:create).and_return(open_file_1)
       expect(open_file_1).not_to receive(:write)
 
-      subject.writeln(nil)
+      subject.write
     end
 
     it 'does not fsync if delta less than limit' do
       expect(LogStash::Outputs::Gcs::LogFileFactory).to receive(:create).and_return(open_file_1)
       expect(open_file_1).not_to receive(:fsync)
 
-      subject.writeln(nil)
+      subject.write
     end
 
     it 'fsyncs if delta greater than limit' do
       expect(LogStash::Outputs::Gcs::LogFileFactory).to receive(:create).and_return(open_file_2)
       expect(open_file_2).to receive(:fsync)
 
-      subject.writeln(nil)
+      subject.write
     end
   end
 
@@ -106,10 +106,10 @@ describe LogStash::Outputs::Gcs::LogRotate do
 
     it 'opens a new file based on the new path' do
       expect(LogStash::Outputs::Gcs::LogFileFactory).to receive(:create).and_return(open_file_1, open_file_2)
-      expect(open_file_2).to receive(:write).with('foo', "\n")
+      expect(open_file_2).to receive(:write).with('foo', 'bar')
 
       subject.rotate_log!
-      subject.writeln('foo')
+      subject.write('foo', 'bar')
     end
   end
 
