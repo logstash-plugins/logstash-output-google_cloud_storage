@@ -31,13 +31,18 @@ describe LogStash::Outputs::GoogleCloudStorage do
   describe '#encode' do
     it 'should dump the event hash if output_format is json' do
       encoded = encode_test({
-                      :output_format => 'json',
-                      :event => {'message' => 'contents'}
-                  })
+                                :output_format => 'json',
+                                :event => {'message' => 'contents'}
+                            })
+
       expect(encoded.end_with?("\n")).to eq(true)
 
       encoded_hash = JSON.parse(encoded)
-      expect(encoded_hash).to eq({'message' => 'contents', '@timestamp' => '1970-01-01T00:00:00.000Z', 'host' => 'localhost', '@version' => '1'})
+      expect(encoded_hash).to eq({
+                                     'message' => 'contents',
+                                     '@timestamp' => '1970-01-01T00:00:00.000Z',
+                                     'host' => 'localhost',
+                                     '@version' => '1'})
     end
 
     it 'should convert to a string if output_format is plain' do
@@ -63,12 +68,12 @@ end
 
 def encode_test(params)
   config = {
-      "bucket" => "",
-      "key_path" => "",
-      "service_account" => "",
-      "uploader_interval_secs" => 10000,
-      "upload_synchronous" => true,
-      "output_format" => params[:output_format]
+      'bucket' => '',
+      'key_path' => '',
+      'service_account' => '',
+      'uploader_interval_secs' => 10000,
+      'upload_synchronous' => true,
+      'output_format' => params[:output_format]
   }
 
   rotater = double('rotater')
@@ -86,9 +91,7 @@ def encode_test(params)
   event.set('host', 'localhost')
 
   value = ''
-  allow(rotater).to receive(:write) do |line|
-    value = line
-  end
+  allow(rotater).to receive(:write){ |line| value = line }
 
   gcsout.multi_receive([event])
   gcsout.close
