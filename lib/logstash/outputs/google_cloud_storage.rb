@@ -104,7 +104,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config :max_file_size_kbytes, :validate => :number, :default => 10000
 
   # The event format you want to store in files. Defaults to plain text.
-  config :output_format, :validate => [ "json", "plain" ], :default => "plain"
+  config :output_format, :validate => [ "json", "plain", "use-codec" ], :default => "plain"
 
   # Time pattern for log file, defaults to hourly files.
   # Must Time.strftime patterns: www.ruby-doc.org/core-2.0/Time.html#method-i-strftime
@@ -163,14 +163,32 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   def receive(event)
     @logger.debug('Received event', :event => event)
 
+    message = encode(event)
+
+    @log_rotater.write(message)
+  end
+
+  def encode(event)
     if @output_format == 'json'
-      message = LogStash::Json.dump(event.to_hash)
+      message = LogStash::Json.dump(event.to_hash) + "\n"
     else
-      message = event.to_s
+      message = event.to_s + "\n"
     end
 
-    @log_rotater.writeln(message)
+    return message
   end
+
+  # def encode(event)
+  #   if @output_format == 'json'
+  #     LogStash::Json.dump(event.to_hash)
+  #   elsif @output_format == 'use-codec'
+  #     # Encoded is a list of (event, encoded_value) pairs
+  #     encoded = @codec.multi_encode([event])
+  #     encoded[0][1]
+  #   else
+  #     event.to_s
+  #   end
+  # end
 
   public
   def close
@@ -218,7 +236,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     Thread.new do
       @registration_thread = Thread.current
       Stud.interval(@uploader_interval_secs) do
-        @log_rotater.writeln(nil)
+        @log_rotater.write
       end
     end
   end
