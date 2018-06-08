@@ -1,3 +1,6 @@
+## 4.1.0
+  - Added ability to use Logstash codecs.
+
 ## 4.0.1
   - Fixes [#38](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/issues/38) - Plugin doesn't start on logstash 7.1.1 - TypeError
 

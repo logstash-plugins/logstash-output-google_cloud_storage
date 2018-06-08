@@ -58,7 +58,6 @@ require "zlib"
 #      temp_directory => "/tmp/logstash-gcs"                     (optional)
 #      log_file_prefix => "logstash_gcs"                         (optional)
 #      max_file_size_kbytes => 1024                              (optional)
-#      output_format => "plain"                                  (optional)
 #      date_pattern => "%Y-%m-%dT%H:00"                          (optional)
 #      flush_interval_secs => 2                                  (optional)
 #      gzip => false                                             (optional)
@@ -79,6 +78,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config_name "google_cloud_storage"
 
   concurrency :single
+  default :codec, "line"
 
   # GCS bucket name, without "gs://" or any other prefix.
   config :bucket, :validate => :string, :required => true
@@ -104,7 +104,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config :max_file_size_kbytes, :validate => :number, :default => 10000
 
   # The event format you want to store in files. Defaults to plain text.
-  config :output_format, :validate => [ "json", "plain" ], :default => "plain"
+  config :output_format, :validate => [ "json", "plain", "" ], :default => "", :deprecated => 'Use codec instead.'
 
   # Time pattern for log file, defaults to hourly files.
   # Must Time.strftime patterns: www.ruby-doc.org/core-2.0/Time.html#method-i-strftime
@@ -154,9 +154,17 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   config :max_concurrent_uploads, :validate  => :number, :default => 5
 
+  attr_accessor :disable_uploader
+
   public
   def register
     @logger.debug('Registering Google Cloud Storage plugin')
+
+    # NOTE: this is a hacky solution to get around the fact that we used to
+    # do our own pseudo-codec processing. This should be removed in the
+    # next major release.
+    params['codec'] = LogStash::Plugin.lookup('codec', 'json_lines').new if @output_format == 'json'
+    params['codec'] = LogStash::Plugin.lookup('codec', 'plain').new if @output_format == 'line'
 
     @workers = LogStash::Outputs::Gcs::WorkerPool.new(@max_concurrent_uploads, @upload_synchronous)
     initialize_temp_directory
@@ -171,25 +179,20 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     @content_encoding = @gzip_content_encoding ? 'gzip' : 'identity'
   end
 
-  # Method called for each log event. It writes the event to the current output
+  # Method called for incoming log events. It writes the event to the current output
   # file, flushing depending on flush interval configuration.
   public
-  def receive(event)
-    @logger.debug('Received event', :event => event)
+  def multi_receive_encoded(event_encoded_pairs)
+    encoded = event_encoded_pairs.map{ |event, encoded| encoded }
+    @logger.debug? && @logger.debug('Received events', :events => encoded)
 
-    if @output_format == 'json'
-      message = LogStash::Json.dump(event.to_hash)
-    else
-      message = event.to_s
-    end
-
-    @log_rotater.writeln(message)
+    @log_rotater.write(*encoded)
   end
 
   public
   def close
     @logger.debug('Stopping the plugin, uploading the remaining files.')
-    Stud.stop!(@registration_thread) unless @registration_thread.nil?
+    Stud.stop!(@uploader_thread) unless @uploader_thread.nil?
 
     # Force rotate the log. If it contains data it will be submitted
     # to the work pool and will be uploaded before the plugin stops.
@@ -229,9 +232,11 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   # start_uploader periodically sends flush events through the log rotater
   def start_uploader
-    @registration_thread = Thread.new do
+    return if @disable_uploader
+
+    @uploader_thread = Thread.new do
       Stud.interval(@uploader_interval_secs) do
-        @log_rotater.writeln(nil)
+        @log_rotater.write
       end
     end
   end

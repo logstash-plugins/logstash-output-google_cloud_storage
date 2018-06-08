@@ -19,15 +19,15 @@ module LogStash
           rotate_log!
         end
 
-        # writeln writes a message and carriage-return character to the open
-        # log file, rotating and syncing it if necessary.
+        # write writes zero or more messages to the open log file
+        # rotating and syncing it if necessary.
         #
         # nil messages do not get written, but may cause the log to rotate
-        def writeln(message=nil)
+        def write(*messages)
           @lock.with_write_lock do
             rotate_log! if should_rotate?
 
-            @temp_file.write(message, "\n") unless message.nil?
+            @temp_file.write(*messages) unless messages.empty?
 
             @temp_file.fsync if @temp_file.time_since_sync >= @flush_interval_secs
           end
