@@ -23,6 +23,8 @@ describe LogStash::Outputs::GoogleCloudStorage do
 
   it 'should register without errors' do
     expect { subject.register }.to_not raise_error
+
+    subject.close
   end
 
   describe '#encode' do

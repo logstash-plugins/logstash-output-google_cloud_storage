@@ -63,6 +63,7 @@ require "zlib"
 #      date_pattern => "%Y-%m-%dT%H:00"                          (optional)
 #      flush_interval_secs => 2                                  (optional)
 #      gzip => false                                             (optional)
+#      gzip_content_encoding => false                            (optional)
 #      uploader_interval_secs => 60                              (optional)
 #      upload_synchronous => false                               (optional)
 #    }
@@ -114,8 +115,14 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # on every message.
   config :flush_interval_secs, :validate => :number, :default => 2
 
-  # Gzip output stream when writing events to log files.
+  # Gzip output stream when writing events to log files, set
+  # `Content-Type` to `application/gzip` instead of `text/plain`, and
+  # use file suffix `.log.gz` instead of `.log`.
   config :gzip, :validate => :boolean, :default => false
+
+  # Gzip output stream when writing events to log files and set
+  # `Content-Encoding` to `gzip`.
+  config :gzip_content_encoding, :validate => :boolean, :default => false
 
   # Uploader interval when uploading new files to GCS. Adjust time based
   # on your time pattern (for example, for hourly files, this interval can be
@@ -155,6 +162,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     start_uploader
 
     @content_type = @gzip ? 'application/gzip' : 'text/plain'
+    @content_encoding = @gzip_content_encoding ? 'gzip' : 'identity'
   end
 
   # Method called for each log event. It writes the event to the current output
@@ -193,7 +201,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   public
   def close
     @logger.debug('Stopping the plugin, uploading the remaining files.')
-    Stud.stop!(@registration_thread) unless @registration_thread.nil?
+    Thread.kill(@uploader_thread) unless @uploader_thread.nil?
 
     # Force rotate the log. If it contains data it will be submitted
     # to the work pool and will be uploaded before the plugin stops.
@@ -233,8 +241,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   # start_uploader periodically sends flush events through the log rotater
   def start_uploader
-    Thread.new do
-      @registration_thread = Thread.current
+    @uploader_thread = Thread.new do
       Stud.interval(@uploader_interval_secs) do
         @log_rotater.write
       end
@@ -270,6 +277,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
                                                :parameters => {
                                                  'uploadType' => 'multipart',
                                                  'bucket' => @bucket,
+                                                 'contentEncoding' => @content_encoding,
                                                  'name' => File.basename(filename)
                                                },
                                                :body_object => {contentType: @content_type},
@@ -301,7 +309,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   def initialize_log_rotater
     max_file_size = @max_file_size_kbytes * 1024
-    @log_rotater = LogStash::Outputs::Gcs::LogRotate.new(@path_factory, max_file_size, @gzip, @flush_interval_secs)
+    @log_rotater = LogStash::Outputs::Gcs::LogRotate.new(@path_factory, max_file_size, @gzip, @flush_interval_secs, @gzip_content_encoding)
 
     @log_rotater.on_rotate do |filename|
       @logger.info("Rotated out file: #{filename}")
@@ -310,4 +318,5 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
       end
     end
   end
+  attr_accessor :active
 end

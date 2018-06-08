@@ -6,11 +6,12 @@ module LogStash
   module Outputs
     module Gcs
       class LogRotate
-        def initialize(path_factory, max_file_size_bytes, gzip, flush_interval_secs)
+        def initialize(path_factory, max_file_size_bytes, gzip, flush_interval_secs, gzip_encoded=false)
           @path_factory = path_factory
           @max_file_size_bytes = max_file_size_bytes
           @gzip = gzip
           @flush_interval_secs = flush_interval_secs
+          @gzip_encoded = gzip_encoded
 
           @lock = Concurrent::ReentrantReadWriteLock.new
           @rotate_callback = nil
@@ -47,7 +48,7 @@ module LogStash
             @path_factory.rotate_path!
 
             path = @path_factory.current_path
-            @temp_file = LogStash::Outputs::Gcs::LogFileFactory.create(path, @gzip)
+            @temp_file = LogStash::Outputs::Gcs::LogFileFactory.create(path, @gzip, true, @gzip_encoded)
           end
         end
 
