@@ -1,3 +1,8 @@
+## 3.3.1
+
+Added ability to use Logstash codecs.
+Setting the `output_format` to `use-codec` will defer event encoding to the specified codec.
+
 ## 3.3.0
 Added the ability to set `gzip` as `Content-Encoding`.
 This saves storage size but still allows uncompressed downloads.

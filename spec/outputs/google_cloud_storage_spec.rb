@@ -2,6 +2,7 @@
 require_relative "../spec_helper"
 require "google/api_client"
 require "tempfile"
+require "json"
 
 describe LogStash::Outputs::GoogleCloudStorage do
 
@@ -29,64 +30,68 @@ describe LogStash::Outputs::GoogleCloudStorage do
 
   describe '#encode' do
     it 'should dump the event hash if output_format is json' do
-      encode_test({
+      encoded = encode_test({
                       :output_format => 'json',
-                      :event => {'message' => 'contents'},
-                      :expected => "{\"message\":\"contents\"}\n"
+                      :event => {'message' => 'contents'}
                   })
+      expect(encoded.end_with?("\n")).to eq(true)
+
+      encoded_hash = JSON.parse(encoded)
+      expect(encoded_hash).to eq({'message' => 'contents', '@timestamp' => '1970-01-01T00:00:00.000Z', 'host' => 'localhost', '@version' => '1'})
     end
 
     it 'should convert to a string if output_format is plain' do
-      encode_test({
+      encoded = encode_test({
                       :output_format => 'plain',
-                      :event => {'message' => 'contents'},
-                      :expected => "1970-01-01T00:00:00.000Z source: contents\n"
+                      :event => {'message' => 'contents'}
                   })
-    end
 
-    it 'should use the plain format if nothing is specified' do
-      encode_test({
-                      :output_format => nil,
-                      :event => {'message' => 'contents'},
-                      :expected => "1970-01-01T00:00:00.000Z source: contents\n"
-                  })
+      expect(encoded).to eq("1970-01-01T00:00:00.000Z localhost contents\n")
+
     end
 
     it 'should call the codec if output_format is "use-codec"' do
-      encode_test({
+      encoded = encode_test({
                       :output_format => 'use-codec',
-                      :event => {'message' => 'contents'},
-                      :expected => "1970-01-01T00:00:00.000Z source: contents"
+                      :event => {'message' => 'contents'}
                   })
+
+      expect(encoded).to eq("1970-01-01T00:00:00.000Z localhost contents\n")
     end
   end
 end
-
 
 def encode_test(params)
   config = {
       "bucket" => "",
       "key_path" => "",
       "service_account" => "",
-      "uploader_interval_secs" => 0.1,
-      "upload_synchronous" => true
+      "uploader_interval_secs" => 10000,
+      "upload_synchronous" => true,
+      "output_format" => params[:output_format]
   }
 
-  format = params[:output_format]
-  unless format.nil?
-    config["output_format"] = format
-  end
+  rotater = double('rotater')
+  allow(rotater).to receive(:on_rotate)
+  allow(rotater).to receive(:rotate_log!)
 
-  subject = LogStash::Outputs::GoogleCloudStorage.new(config)
-  subject.register
+  allow(LogStash::Outputs::Gcs::LogRotate).to receive(:new).and_return(rotater)
+
+  gcsout = LogStash::Outputs::GoogleCloudStorage.new(config)
+  gcsout.disable_uploader = true
+  gcsout.register
 
   event = LogStash::Event.new(params[:event])
   event.timestamp = LogStash::Timestamp.at(0)
-  #event.source = 'source'
+  event.set('host', 'localhost')
 
-  result = subject.encode(event)
+  value = ''
+  allow(rotater).to receive(:write) do |line|
+    value = line
+  end
 
-  subject.close
+  gcsout.multi_receive([event])
+  gcsout.close
 
-  expect(result).to eq(params[:expected])
+  value
 end

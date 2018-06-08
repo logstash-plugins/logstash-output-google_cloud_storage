@@ -80,6 +80,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config_name "google_cloud_storage"
 
   concurrency :single
+  default :codec, "line"
 
   # GCS bucket name, without "gs://" or any other prefix.
   config :bucket, :validate => :string, :required => true
@@ -148,6 +149,8 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   config :max_concurrent_uploads, :validate  => :number, :default => 5
 
+  attr_accessor :disable_uploader
+
   public
   def register
     @logger.debug('Registering Google Cloud Storage plugin')
@@ -165,38 +168,15 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     @content_encoding = @gzip_content_encoding ? 'gzip' : 'identity'
   end
 
-  # Method called for each log event. It writes the event to the current output
+  # Method called for incoming log events. It writes the event to the current output
   # file, flushing depending on flush interval configuration.
   public
-  def receive(event)
-    @logger.debug('Received event', :event => event)
+  def multi_receive_encoded(event_encoded_pairs)
+    encoded = event_encoded_pairs.map{ |event, encoded| legacy_encode(event, encoded) }
+    @logger.debug('Received events', :events => encoded)
 
-    message = encode(event)
-
-    @log_rotater.write(message)
+    @log_rotater.write(*encoded)
   end
-
-  def encode(event)
-    if @output_format == 'json'
-      message = LogStash::Json.dump(event.to_hash) + "\n"
-    else
-      message = event.to_s + "\n"
-    end
-
-    return message
-  end
-
-  # def encode(event)
-  #   if @output_format == 'json'
-  #     LogStash::Json.dump(event.to_hash)
-  #   elsif @output_format == 'use-codec'
-  #     # Encoded is a list of (event, encoded_value) pairs
-  #     encoded = @codec.multi_encode([event])
-  #     encoded[0][1]
-  #   else
-  #     event.to_s
-  #   end
-  # end
 
   public
   def close
@@ -210,6 +190,18 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   end
 
   private
+
+  def legacy_encode(event, encoded)
+    # use-codec uses whatever the codec output exactly
+    return encoded if @output_format == 'use-codec'
+
+    # Deprecated logic
+    if @output_format == 'json'
+      LogStash::Json.dump(event.to_hash) + "\n"
+    else
+      event.to_s + "\n"
+    end
+  end
 
   ##
   # Creates temporary directory, if it does not exist.
@@ -241,6 +233,8 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   # start_uploader periodically sends flush events through the log rotater
   def start_uploader
+    return if @disable_uploader
+
     @uploader_thread = Thread.new do
       Stud.interval(@uploader_interval_secs) do
         @log_rotater.write
