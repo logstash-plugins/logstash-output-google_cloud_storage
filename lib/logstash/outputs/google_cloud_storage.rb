@@ -217,13 +217,13 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   def initialize_path_factory
     @path_factory = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
-      builder.set_directory @temp_directory
-      builder.set_prefix @log_file_prefix
-      builder.set_include_host @include_hostname
-      builder.set_date_pattern @date_pattern
+      builder.set_directory(@temp_directory)
+      builder.set_prefix(@log_file_prefix)
+      builder.set_include_host(@include_hostname)
+      builder.set_date_pattern(@date_pattern)
       builder.set_include_part(@max_file_size_kbytes > 0)
-      builder.set_include_uuid @include_uuid
-      builder.set_is_gzipped @gzip
+      builder.set_include_uuid(@include_uuid)
+      builder.set_is_gzipped(@gzip)
     end
   end
 
@@ -240,7 +240,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   ##
   # Initializes Google Client instantiating client and authorizing access.
   def initialize_google_client
-    @client = LogStash::Outputs::Gcs::Client.new @bucket, @json_key_file, @logger
+    @client = LogStash::Outputs::Gcs::Client.new(@bucket, @json_key_file, @logger)
   end
 
   ##
