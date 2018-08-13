@@ -62,6 +62,7 @@ require "zlib"
 #      date_pattern => "%Y-%m-%dT%H:00"                          (optional)
 #      flush_interval_secs => 2                                  (optional)
 #      gzip => false                                             (optional)
+#      gzip_content_encoding => false                            (optional)
 #      uploader_interval_secs => 60                              (optional)
 #      upload_synchronous => false                               (optional)
 #    }
@@ -113,8 +114,14 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # on every message.
   config :flush_interval_secs, :validate => :number, :default => 2
 
-  # Gzip output stream when writing events to log files.
+  # Gzip output stream when writing events to log files, set
+  # `Content-Type` to `application/gzip` instead of `text/plain`, and
+  # use file suffix `.log.gz` instead of `.log`.
   config :gzip, :validate => :boolean, :default => false
+
+  # Gzip output stream when writing events to log files and set
+  # `Content-Encoding` to `gzip`.
+  config :gzip_content_encoding, :validate => :boolean, :default => false
 
   # Uploader interval when uploading new files to GCS. Adjust time based
   # on your time pattern (for example, for hourly files, this interval can be
@@ -147,13 +154,6 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   config :max_concurrent_uploads, :validate  => :number, :default => 5
 
-  # The path to the service account's JSON credentials file.
-  # Application Default Credentials (ADC) are used if the path is blank.
-  # See: https://cloud.google.com/docs/authentication/production
-  #
-  # You must run on GCP for ADC to work.
-  config :json_key_file, :validate => :string, :default => ""
-
   public
   def register
     @logger.debug('Registering Google Cloud Storage plugin')
@@ -168,6 +168,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     start_uploader
 
     @content_type = @gzip ? 'application/gzip' : 'text/plain'
+    @content_encoding = @gzip_content_encoding ? 'gzip' : 'identity'
   end
 
   # Method called for each log event. It writes the event to the current output
@@ -245,7 +246,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   ##
   # Uploads a local file to the configured bucket.
   def upload_object(filename)
-    @client.upload_object filename
+    @client.upload_object(filename, @content_encoding, @content_type)
   end
 
   def upload_and_delete(filename)

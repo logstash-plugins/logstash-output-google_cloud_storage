@@ -8,6 +8,7 @@ describe LogStash::Outputs::Gcs::WorkerPool do
       expect(pool.workers).to_not receive(:post)
 
       pool.post { 1 + 2 }
+      pool.stop!
     end
 
     it 'runs the task in a different thread if asynchronous' do
@@ -15,6 +16,7 @@ describe LogStash::Outputs::Gcs::WorkerPool do
       expect(pool.workers).to receive(:post)
 
       pool.post { 1 + 2 }
+      pool.stop!
     end
 
     it 'raises an error if the pool is already stopped' do

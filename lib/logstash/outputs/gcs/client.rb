@@ -14,11 +14,14 @@ module LogStash
           @storage = initialize_storage json_key_path
         end
 
-        def upload_object(file_path)
+        def upload_object(file_path, content_encoding, content_type)
           input = java.io.FileInputStream.new(file_path)
 
           blob_name = ::File.basename(file_path)
-          blob_info = com.google.cloud.storage.BlobInfo.newBuilder(@bucket, blob_name).build()
+          blob_info = com.google.cloud.storage.BlobInfo.newBuilder(@bucket, blob_name)
+                          .setContentEncoding(content_encoding)
+                          .setContentType(content_type)
+                          .build
 
           @logger.info("Uploading file to #{@bucket}/#{blob_name}")
           @storage.create(blob_info, input)
