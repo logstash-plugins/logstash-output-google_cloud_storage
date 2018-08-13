@@ -14,7 +14,7 @@ dependencies {
     // Core dependency for Logstash Output Google Cloud Storage
     compile "com.google.cloud:google-cloud-storage:1.39.0"
 
-    // Dependencies of com.google.cloud:google-cloud-storage:1.25.0
+    // Dependencies of com.google.cloud:google-cloud-storage:1.39.0
     compile "com.fasterxml.jackson.core:jackson-core:2.9.2"
     compile "com.google.api:api-common:1.7.0"
     compile "com.google.api-client:google-api-client:1.24.1"
