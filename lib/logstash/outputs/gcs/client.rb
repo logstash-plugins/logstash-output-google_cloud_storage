@@ -2,6 +2,14 @@ require 'thread'
 require 'java'
 require 'logstash-output-google_cloud_storage_jars.rb'
 
+java_import 'com.google.api.gax.rpc.FixedHeaderProvider'
+java_import 'com.google.api.gax.retrying.RetrySettings'
+java_import 'com.google.auth.oauth2.GoogleCredentials'
+java_import 'com.google.cloud.storage.BlobInfo'
+java_import 'com.google.cloud.storage.StorageOptions'
+java_import 'java.io.FileInputStream'
+java_import 'org.threeten.bp.Duration'
+
 module LogStash
   module Outputs
     module Gcs
@@ -11,14 +19,17 @@ module LogStash
           @bucket = bucket
 
           # create client
-          @storage = initialize_storage json_key_path
+          @storage = initialize_storage(json_key_path)
         end
 
-        def upload_object(file_path)
-          input = java.io.FileInputStream.new(file_path)
+        def upload_object(file_path, content_encoding, content_type)
+          input = FileInputStream.new(file_path)
 
           blob_name = ::File.basename(file_path)
-          blob_info = com.google.cloud.storage.BlobInfo.newBuilder(@bucket, blob_name).build()
+          blob_info = com.google.cloud.storage.BlobInfo.newBuilder(@bucket, blob_name)
+                          .setContentEncoding(content_encoding)
+                          .setContentType(content_type)
+                          .build
 
           @logger.info("Uploading file to #{@bucket}/#{blob_name}")
           @storage.create(blob_info, input)
@@ -30,35 +41,27 @@ module LogStash
         def initialize_storage(json_key_path)
           @logger.info("Initializing Google API client, key: #{json_key_path}")
 
-          com.google.cloud.storage.StorageOptions.newBuilder()
+          StorageOptions.newBuilder
               .setCredentials(credentials(json_key_path))
               .setHeaderProvider(http_headers)
               .setRetrySettings(retry_settings)
-              .build()
-              .getService()
+              .build
+              .getService
         end
 
         private
 
-        java_import 'com.google.auth.oauth2.GoogleCredentials'
         def credentials(json_key_path)
           return GoogleCredentials.getApplicationDefault() if nil_or_empty?(json_key_path)
 
-          key_file = java.io.FileInputStream.new(json_key_path)
+          key_file = FileInputStream.new(json_key_path)
           GoogleCredentials.fromStream(key_file)
         end
 
-        java_import 'com.google.api.gax.rpc.FixedHeaderProvider'
         def http_headers
-          gem_name = 'logstash-output-google_cloud_storage'
-          gem_version = '4.0.0'
-          user_agent = "Elastic/#{gem_name} version/#{gem_version}"
-
-          FixedHeaderProvider.create({ 'User-Agent' => user_agent })
+          FixedHeaderProvider.create({ 'User-Agent' => 'Elastic/logstash-output-google_cloud_storage' })
         end
 
-        java_import 'com.google.api.gax.retrying.RetrySettings'
-        java_import 'org.threeten.bp.Duration'
         def retry_settings
           # backoff values taken from com.google.api.client.util.ExponentialBackOff
           RetrySettings.newBuilder()
@@ -69,7 +72,7 @@ module LogStash
               .setRpcTimeoutMultiplier(1.5)
               .setMaxRpcTimeout(Duration.ofSeconds(20))
               .setTotalTimeout(Duration.ofMinutes(15))
-              .build()
+              .build
         end
 
         def api_debug(message, dataset, table)
