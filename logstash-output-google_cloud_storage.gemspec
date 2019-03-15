@@ -24,12 +24,10 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'stud'
   s.add_runtime_dependency 'logstash-codec-plain'
   s.add_runtime_dependency 'mime-types', '~> 2' # last version compatible with ruby 2.x
-  s.add_runtime_dependency 'concurrent-ruby', '1.0.5'
+  s.add_runtime_dependency 'concurrent-ruby' # use version bundled with Logstash to avoid platform mismatch on plugin install
   s.add_development_dependency 'logstash-devutils'
 
   # JARs
-  s.add_development_dependency 'jar-dependencies', '~> 0.3.4'
-
   s.platform = 'java'
 end
 

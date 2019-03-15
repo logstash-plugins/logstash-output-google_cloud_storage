@@ -228,8 +228,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   # start_uploader periodically sends flush events through the log rotater
   def start_uploader
-    Thread.new do
-      @registration_thread = Thread.current
+    @registration_thread = Thread.new do
       Stud.interval(@uploader_interval_secs) do
         @log_rotater.writeln(nil)
       end
