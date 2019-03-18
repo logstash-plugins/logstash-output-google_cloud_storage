@@ -1,24 +1,18 @@
 # encoding: utf-8
 require_relative "../spec_helper"
-require "google/api_client"
 require "tempfile"
 
 describe LogStash::Outputs::GoogleCloudStorage do
 
-  let(:client) { double("google-client") }
-  let(:service_account) { double("service-account") }
-  let(:key)    { "key" }
+  let(:javaclient) { double("google-java-client") }
+  let(:javastorage) { double("google-java-client-storage") }
 
   subject { described_class.new(config) }
-  let(:config) { {"bucket" => "", "key_path" => "", "service_account" => "", "uploader_interval_secs" => 0.1, "upload_synchronous" => true} }
+  let(:config) { {"bucket" => "", "uploader_interval_secs" => 0.1, "upload_synchronous" => true} }
 
   before(:each) do
-    allow(Google::APIClient).to receive(:new).and_return(client)
-    allow(client).to receive(:discovered_api).with("storage", "v1")
-    allow(Google::APIClient::PKCS12).to receive(:load_key).with("", "notasecret").and_return(key)
-    allow(Google::APIClient::JWTAsserter).to receive(:new).and_return(service_account)
-    allow(client).to receive(:authorization=)
-    allow(service_account).to receive(:authorize)
+    allow(LogStash::Outputs::Gcs::Client).to receive(:new).and_return(:javaclient)
+    allow(javaclient).to receive(:initialize_storage).and_return(:javastorage)
   end
 
   it "should register without errors" do

@@ -18,6 +18,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # -----
+require 'logstash/outputs/gcs/client'
 require "logstash/outputs/base"
 require "logstash/outputs/gcs/path_factory"
 require "logstash/outputs/gcs/worker_pool"
@@ -53,9 +54,7 @@ require "zlib"
 # output {
 #    google_cloud_storage {
 #      bucket => "my_bucket"                                     (required)
-#      key_path => "/path/to/privatekey.p12"                     (required)
-#      key_password => "notasecret"                              (optional)
-#      service_account => "1234@developer.gserviceaccount.com"   (required)
+#      json_key_file => "/path/to/privatekey.json"               (optional)
 #      temp_directory => "/tmp/logstash-gcs"                     (optional)
 #      log_file_prefix => "logstash_gcs"                         (optional)
 #      max_file_size_kbytes => 1024                              (optional)
@@ -85,13 +84,13 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config :bucket, :validate => :string, :required => true
 
   # GCS path to private key file.
-  config :key_path, :validate => :string, :required => true
+  config :key_path, :validate => :string, :obsolete => 'Use json_key_file or ADC instead.'
 
   # GCS private key password.
-  config :key_password, :validate => :string, :default => "notasecret"
+  config :key_password, :validate => :string, :deprecated => 'Use json_key_file or ADC instead.'
 
   # GCS service account.
-  config :service_account, :validate => :string, :required => true
+  config :service_account, :validate => :string, :deprecated => 'Use json_key_file or ADC instead.'
 
   # Directory where temporary files are stored.
   # Defaults to /tmp/logstash-gcs-<random-suffix>
@@ -134,6 +133,13 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   # Should a UUID be included in the file name?
   config :include_uuid, :validate => :boolean, :default => false
+
+  # The path to the service account's JSON credentials file.
+  # Application Default Credentials (ADC) are used if the path is blank.
+  # See: https://cloud.google.com/docs/authentication/production
+  #
+  # You must run on GCP for ADC to work.
+  config :json_key_file, :validate => :string, :default => ""
 
   # When true, files are uploaded by the event processing thread as soon as a file is ready.
   # When false, (the default behaviour), files will be uploaded in a dedicated thread.
@@ -183,7 +189,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   public
   def close
     @logger.debug('Stopping the plugin, uploading the remaining files.')
-    Thread.kill(@uploader_thread) unless @uploader_thread.nil?
+    Stud.stop!(@registration_thread) unless @registration_thread.nil?
 
     # Force rotate the log. If it contains data it will be submitted
     # to the work pool and will be uploaded before the plugin stops.
@@ -211,19 +217,19 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   def initialize_path_factory
     @path_factory = LogStash::Outputs::Gcs::PathFactoryBuilder.build do |builder|
-      builder.set_directory @temp_directory
-      builder.set_prefix @log_file_prefix
-      builder.set_include_host @include_hostname
-      builder.set_date_pattern @date_pattern
+      builder.set_directory(@temp_directory)
+      builder.set_prefix(@log_file_prefix)
+      builder.set_include_host(@include_hostname)
+      builder.set_date_pattern(@date_pattern)
       builder.set_include_part(@max_file_size_kbytes > 0)
-      builder.set_include_uuid @include_uuid
-      builder.set_is_gzipped @gzip
+      builder.set_include_uuid(@include_uuid)
+      builder.set_is_gzipped(@gzip)
     end
   end
 
   # start_uploader periodically sends flush events through the log rotater
   def start_uploader
-    @uploader_thread = Thread.new do
+    @registration_thread = Thread.new do
       Stud.interval(@uploader_interval_secs) do
         @log_rotater.writeln(nil)
       end
@@ -233,47 +239,13 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   ##
   # Initializes Google Client instantiating client and authorizing access.
   def initialize_google_client
-    require "google/api_client"
-    require "openssl"
-
-    @client = Google::APIClient.new(:application_name =>
-                                    'Logstash Google Cloud Storage output plugin',
-                                    :application_version => '0.1')
-    @storage = @client.discovered_api('storage', 'v1')
-
-    key = Google::APIClient::PKCS12.load_key(@key_path, @key_password)
-    service_account = Google::APIClient::JWTAsserter.new(@service_account,
-                                                         'https://www.googleapis.com/auth/devstorage.read_write',
-                                                         key)
-    @client.authorization = service_account.authorize
+    @client = LogStash::Outputs::Gcs::Client.new(@bucket, @json_key_file, @logger)
   end
 
   ##
   # Uploads a local file to the configured bucket.
   def upload_object(filename)
-    begin
-      @logger.debug("GCS: upload object.", :filename => filename)
-
-      media = Google::APIClient::UploadIO.new(filename, @content_type)
-      metadata_insert_result = @client.execute(:api_method => @storage.objects.insert,
-                                               :parameters => {
-                                                 'uploadType' => 'multipart',
-                                                 'bucket' => @bucket,
-                                                 'contentEncoding' => @content_encoding,
-                                                 'name' => File.basename(filename)
-                                               },
-                                               :body_object => {contentType: @content_type},
-                                               :media => media)
-      contents = metadata_insert_result.data
-      @logger.debug("GCS: multipart insert",
-                    :object => contents.name,
-                    :self_link => contents.self_link)
-    rescue => e
-      @logger.error("GCS: failed to upload file", :exception => e)
-      # TODO(rdc): limit retries?
-      sleep 1
-      retry
-    end
+    @client.upload_object(filename, @content_encoding, @content_type)
   end
 
   def upload_and_delete(filename)

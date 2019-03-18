@@ -2,5 +2,6 @@
 Gemfile.lock
 .bundle
 vendor
+.gradle
 .idea
-
+lib/logstash-output-google_cloud_storage_jars.rb

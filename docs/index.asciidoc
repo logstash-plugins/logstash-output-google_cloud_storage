@@ -15,13 +15,13 @@ END - GENERATED VARIABLES, DO NOT EDIT!
 
 [id="plugins-{type}s-{plugin}"]
 
-=== Google_cloud_storage output plugin
+=== Google Cloud Storage output plugin
 
 include::{include_path}/plugin_header.asciidoc[]
 
 ==== Description
 
-Summary: plugin to upload log events to Google Cloud Storage (GCS), rolling
+A plugin to upload log events to Google Cloud Storage (GCS), rolling
 files based on the date pattern provided as a configuration setting. Events
 are written to files locally and, once file is closed, this plugin uploads
 it to the configured bucket.
@@ -38,7 +38,8 @@ data you generate, so the uploader can keep up with the generated logs.
 Using gzip output can be a good option to reduce network traffic when
 uploading the log files and in terms of storage costs as well.
 
-USAGE:
+==== Usage
+
 This is an example of logstash config:
 
 [source,json]
@@ -46,9 +47,7 @@ This is an example of logstash config:
 output {
    google_cloud_storage {
      bucket => "my_bucket"                                     (required)
-     key_path => "/path/to/privatekey.p12"                     (required)
-     key_password => "notasecret"                              (optional)
-     service_account => "1234@developer.gserviceaccount.com"   (required)
+     json_key_file => "/path/to/privatekey.json"               (optional)
      temp_directory => "/tmp/logstash-gcs"                     (optional)
      log_file_prefix => "logstash_gcs"                         (optional)
      max_file_size_kbytes => 1024                              (optional)
@@ -63,6 +62,15 @@ output {
    }
 }
 --------------------------
+
+===== Additional Resources
+
+* https://cloud.google.com/docs/authentication/production[Application Default Credentials (ADC) Overview]
+* https://cloud.google.com/storage/[Cloud Storage Introduction]
+* https://cloud.google.com/storage/pricing[Pricing Information]
+
+
+==== Improvements TODO List
 
 * Support logstash event variables to determine filename.
 * Turn Google API code into a Plugin Mixin (like AwsConfig).
@@ -87,13 +95,14 @@ This plugin supports the following configuration options plus the <<plugins-{typ
 | <<plugins-{type}s-{plugin}-gzip_content_encoding>> |<<boolean,boolean>>|No
 | <<plugins-{type}s-{plugin}-include_hostname>> |<<boolean,boolean>>|No
 | <<plugins-{type}s-{plugin}-include_uuid>> |<<boolean,boolean>>|No
-| <<plugins-{type}s-{plugin}-key_password>> |<<string,string>>|No
-| <<plugins-{type}s-{plugin}-key_path>> |<<string,string>>|Yes
+| <<plugins-{type}s-{plugin}-json_key_file>> |<<string,string>>|No
+| <<plugins-{type}s-{plugin}-key_password>> |<<string,string>>|__Deprecated__
+| <<plugins-{type}s-{plugin}-key_path>> |<<string,string>>|**Obsolete**
 | <<plugins-{type}s-{plugin}-log_file_prefix>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-max_concurrent_uploads>> |<<number,number>>|No
 | <<plugins-{type}s-{plugin}-max_file_size_kbytes>> |<<number,number>>|No
 | <<plugins-{type}s-{plugin}-output_format>> |<<string,string>>, one of `["json", "plain"]`|No
-| <<plugins-{type}s-{plugin}-service_account>> |<<string,string>>|Yes
+| <<plugins-{type}s-{plugin}-service_account>> |<<string,string>>|__Deprecated__
 | <<plugins-{type}s-{plugin}-temp_directory>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-uploader_interval_secs>> |<<number,number>>|No
 |=======================================================================
@@ -186,22 +195,43 @@ Adds a UUID to the end of a file name.
 You may want to enable this feature so files don't clobber one another if you're
 running multiple instances of Logstash or if you expect frequent node restarts.
 
+[id="plugins-{type}s-{plugin}-json_key_file"]
+===== `json_key_file`
+
+  * Value type is <<string,string>>
+  * Default value is `nil`
+
+The plugin can use
+https://cloud.google.com/docs/authentication/production[Application Default Credentials (ADC)],
+if it's running on Compute Engine, Kubernetes Engine, App Engine, or Cloud Functions.
+
+Outside of Google Cloud, you will need create a Service Account JSON key file through the
+web interface or with the following command:
+`gcloud iam service-accounts keys create key.json --iam-account my-sa-123@my-project-123.iam.gserviceaccount.com`
+
 [id="plugins-{type}s-{plugin}-key_password"]
 ===== `key_password` 
 
   * Value type is <<string,string>>
   * Default value is `"notasecret"`
 
-GCS private key password.
+**Deprecated** this feature is no longer used, the setting is now a part of <<plugins-{type}s-{plugin}-json_key_file>>.
+
 
 [id="plugins-{type}s-{plugin}-key_path"]
-===== `key_path` 
+===== `key_path`
 
-  * This is a required setting.
   * Value type is <<string,string>>
-  * There is no default value for this setting.
 
-GCS path to private key file.
+**Obsolete:** The PKCS12 key file format is no longer supported.
+Please use one of the following mechanisms:
+
+  * https://cloud.google.com/docs/authentication/production[Application Default Credentials (ADC)],
+    configured via environment variables on Compute Engine, Kubernetes Engine, App Engine, or
+    Cloud Functions.
+  * A JSON authentication key file. You can generate them in the console for the service account
+    like you did with the `.P12` file or with the following command:
+    `gcloud iam service-accounts keys create key.json --iam-account my-sa-123@my-project-123.iam.gserviceaccount.com`
 
 [id="plugins-{type}s-{plugin}-log_file_prefix"]
 ===== `log_file_prefix` 
@@ -246,7 +276,7 @@ The event format you want to store in files. Defaults to plain text.
   * Value type is <<string,string>>
   * There is no default value for this setting.
 
-GCS service account.
+**Deprecated** this feature is no longer used, the setting is now a part of <<plugins-{type}s-{plugin}-json_key_file>>.
 
 [id="plugins-{type}s-{plugin}-temp_directory"]
 ===== `temp_directory` 
@@ -269,4 +299,7 @@ around one hour).
 
 
 
+[id="plugins-{type}s-{plugin}-common-options"]
 include::{include_path}/{type}.asciidoc[]
+
+:default_codec!:
