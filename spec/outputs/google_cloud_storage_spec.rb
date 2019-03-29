@@ -63,7 +63,6 @@ end
 def encode_test(params)
   config = {
       'bucket' => '',
-      'key_path' => '',
       'service_account' => '',
       'uploader_interval_secs' => 10000,
       'upload_synchronous' => true,
