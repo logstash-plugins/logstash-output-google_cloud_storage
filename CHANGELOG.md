@@ -1,7 +1,29 @@
-## 3.3.1
+## 4.1.0
 
-Added ability to use Logstash codecs.
-Setting the `output_format` to `use-codec` will defer event encoding to the specified codec.
+  - Added ability to use Logstash codecs.
+  - Setting the `output_format` to `use-codec` will defer event encoding to the specified codec.
+
+## 4.0.0
+  - Move to the Java Google Cloud client library for increased performance and stability.
+  - **Breaking** If you use the old PKCS12 authentication keys, you will need to upgrade to
+    the new JSON keys. Application Default Credentials will continue to work.
+
+### Configuration Changes
+
+**New Options**
+
+ - `json_key_file` - The JSON IAM service account credentials to use with the plugin.
+
+**Deprecations**
+
+ - `key_password` - No longer used with `json_key_file`
+ - `service_account` - No longer used with `json_key_file`
+
+**Obsoletions**
+
+ - `key_path` - Use `json_key_file` or Application Default Credentials (ADC) instead.
+   See [the documentation](https://www.elastic.co/guide/en/logstash/current/plugins-outputs-google_cloud_storage.html#plugins-outputs-google_cloud_storage-key_path)
+   for help about moving to JSON key files.
 
 ## 3.3.0
 Added the ability to set `gzip` as `Content-Encoding`.
