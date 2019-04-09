@@ -58,7 +58,6 @@ require "zlib"
 #      temp_directory => "/tmp/logstash-gcs"                     (optional)
 #      log_file_prefix => "logstash_gcs"                         (optional)
 #      max_file_size_kbytes => 1024                              (optional)
-#      output_format => "plain"                                  (optional)
 #      date_pattern => "%Y-%m-%dT%H:00"                          (optional)
 #      flush_interval_secs => 2                                  (optional)
 #      gzip => false                                             (optional)
@@ -105,7 +104,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config :max_file_size_kbytes, :validate => :number, :default => 10000
 
   # The event format you want to store in files. Defaults to plain text.
-  config :output_format, :validate => [ "json", "plain", "use-codec" ], :default => "plain"
+  config :output_format, :validate => [ "json", "plain", "" ], :default => "", :deprecated => 'Use codec instead.'
 
   # Time pattern for log file, defaults to hourly files.
   # Must Time.strftime patterns: www.ruby-doc.org/core-2.0/Time.html#method-i-strftime
@@ -161,6 +160,12 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   def register
     @logger.debug('Registering Google Cloud Storage plugin')
 
+    # NOTE: this is a hacky solution to get around the fact that we used to
+    # do our own pseudo-codec processing. This should be removed in the
+    # next major release.
+    params['codec'] = LogStash::Plugin.lookup('codec', 'json_lines').new if @output_format == 'json'
+    params['codec'] = LogStash::Plugin.lookup('codec', 'plain').new if @output_format == 'line'
+
     @workers = LogStash::Outputs::Gcs::WorkerPool.new(@max_concurrent_uploads, @upload_synchronous)
     initialize_temp_directory
     initialize_path_factory
@@ -178,8 +183,8 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # file, flushing depending on flush interval configuration.
   public
   def multi_receive_encoded(event_encoded_pairs)
-    encoded = event_encoded_pairs.map{ |event, encoded| legacy_encode(event, encoded) }
-    @logger.debug('Received events', :events => encoded)
+    encoded = event_encoded_pairs.map{ |event, encoded| encoded }
+    @logger.debug? && @logger.debug('Received events', :events => encoded)
 
     @log_rotater.write(*encoded)
   end
@@ -196,18 +201,6 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   end
 
   private
-
-  def legacy_encode(event, encoded)
-    # use-codec uses whatever the codec output exactly
-    return encoded if @output_format == 'use-codec'
-
-    # Deprecated logic
-    if @output_format == 'json'
-      LogStash::Json.dump(event.to_hash) + "\n"
-    else
-      event.to_s + "\n"
-    end
-  end
 
   ##
   # Creates temporary directory, if it does not exist.

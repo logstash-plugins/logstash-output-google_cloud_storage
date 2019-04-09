@@ -49,9 +49,9 @@ describe LogStash::Outputs::GoogleCloudStorage do
 
     end
 
-    it 'should call the codec if output_format is "use-codec"' do
+    it 'should call the codec if output_format is blank' do
       encoded = encode_test({
-                      :output_format => 'use-codec',
+                      :output_format => '',
                       :event => {'message' => 'contents'}
                   })
 
