@@ -1,7 +1,7 @@
 ## 4.1.0
 
   - Added ability to use Logstash codecs.
-  - Setting the `output_format` to `use-codec` will defer event encoding to the specified codec.
+  - Setting the `output_format` to blank will defer event encoding to the specified codec.
 
 ## 4.0.0
   - Move to the Java Google Cloud client library for increased performance and stability.
