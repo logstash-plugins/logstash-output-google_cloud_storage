@@ -114,13 +114,13 @@ describe LogStash::Outputs::Gcs::PathFactory do
         builder.set_directory 'dir'
         builder.set_prefix 'pre'
         builder.set_include_host false
-        builder.set_date_pattern '%N'
+        builder.set_date_pattern '%s'
         builder.set_include_part true
         builder.set_include_uuid false
         builder.set_is_gzipped false
       end
       expect(pf.current_path).to include('part000')
-
+      sleep(1)
       pf.rotate_path!
       expect(pf.current_path).to include('part000')
     end

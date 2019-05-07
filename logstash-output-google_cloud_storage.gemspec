@@ -32,5 +32,4 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency 'logstash-devutils'
 end
-end
 
