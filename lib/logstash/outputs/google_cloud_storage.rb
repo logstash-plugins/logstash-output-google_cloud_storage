@@ -104,7 +104,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   config :max_file_size_kbytes, :validate => :number, :default => 10000
 
   # The event format you want to store in files. Defaults to plain text.
-  config :output_format, :validate => [ "json", "plain", "" ], :default => "", :deprecated => 'Use codec instead.'
+  config :output_format, :validate => [ "json", "plain", nil ], :default => nil, :deprecated => 'Use codec instead.'
 
   # Time pattern for log file, defaults to hourly files.
   # Must Time.strftime patterns: www.ruby-doc.org/core-2.0/Time.html#method-i-strftime
@@ -164,7 +164,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     # do our own pseudo-codec processing. This should be removed in the
     # next major release.
     params['codec'] = LogStash::Plugin.lookup('codec', 'json_lines').new if @output_format == 'json'
-    params['codec'] = LogStash::Plugin.lookup('codec', 'plain').new if @output_format == 'line'
+    params['codec'] = LogStash::Plugin.lookup('codec', 'line').new if @output_format == 'plain'
 
     @workers = LogStash::Outputs::Gcs::WorkerPool.new(@max_concurrent_uploads, @upload_synchronous)
     initialize_temp_directory

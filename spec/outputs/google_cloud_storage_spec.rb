@@ -51,9 +51,17 @@ describe LogStash::Outputs::GoogleCloudStorage do
 
     it 'should call the codec if output_format is blank' do
       encoded = encode_test({
-                      :output_format => '',
+                      :output_format => nil,
                       :event => {'message' => 'contents'}
                   })
+
+      expect(encoded).to eq("1970-01-01T00:00:00.000Z localhost contents\n")
+    end
+
+    it 'should call the codec if no output_format' do
+      encoded = encode_test({
+                                :event => {'message' => 'contents'}
+                            })
 
       expect(encoded).to eq("1970-01-01T00:00:00.000Z localhost contents\n")
     end
@@ -66,8 +74,8 @@ def encode_test(params)
       'service_account' => '',
       'uploader_interval_secs' => 10000,
       'upload_synchronous' => true,
-      'output_format' => params[:output_format]
   }
+  config['output_format'] = params[:output_format] if params[:output_format]
 
   rotater = double('rotater')
   allow(rotater).to receive(:on_rotate)
