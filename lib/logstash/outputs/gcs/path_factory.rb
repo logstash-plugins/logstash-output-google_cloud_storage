@@ -80,7 +80,7 @@ module LogStash
               prefix: @prefix,
               host: Socket.gethostname,
               date: Time.now.strftime(@date_pattern),
-              partf: '%03d' % @part_number,
+              partf: '%03d' % (@part_number.nil? ? 0 : @part_number),
               uuid: SecureRandom.uuid
           }
         end
