@@ -154,9 +154,8 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   config :max_concurrent_uploads, :validate  => :number, :default => 5
 
-  attr_accessor :disable_uploader
+  attr_accessor :disable_uploader, :active
 
-  public
   def register
     @logger.debug('Registering Google Cloud Storage plugin')
 
@@ -181,7 +180,6 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   # Method called for incoming log events. It writes the event to the current output
   # file, flushing depending on flush interval configuration.
-  public
   def multi_receive_encoded(event_encoded_pairs)
     encoded = event_encoded_pairs.map{ |event, encoded| encoded }
     @logger.debug? && @logger.debug('Received events', :events => encoded)
@@ -189,7 +187,6 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     @log_rotater.write(*encoded)
   end
 
-  public
   def close
     @logger.debug('Stopping the plugin, uploading the remaining files.')
     Stud.stop!(@uploader_thread) unless @uploader_thread.nil?
@@ -277,5 +274,4 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
       end
     end
   end
-  attr_accessor :active
 end
