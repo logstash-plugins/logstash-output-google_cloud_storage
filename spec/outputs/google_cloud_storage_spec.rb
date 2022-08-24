@@ -34,7 +34,7 @@ describe LogStash::Outputs::GoogleCloudStorage do
       encoded_hash = JSON.parse(encoded)
       expect(encoded_hash).to eq({
                                      'message' => 'contents',
-                                     '@timestamp' => '1970-01-01T00:00:00.000Z',
+                                     '@timestamp' => '1970-01-01T00:00:00Z',
                                      'host' => 'localhost',
                                      '@version' => '1'})
     end
@@ -45,7 +45,7 @@ describe LogStash::Outputs::GoogleCloudStorage do
                       :event => {'message' => 'contents'}
                   })
 
-      expect(encoded).to eq("1970-01-01T00:00:00.000Z localhost contents\n")
+      expect(encoded).to match(/1970-01-01T00:00:00(\.000)?Z localhost contents\n/)
 
     end
 
@@ -55,7 +55,7 @@ describe LogStash::Outputs::GoogleCloudStorage do
                       :event => {'message' => 'contents'}
                   })
 
-      expect(encoded).to eq("1970-01-01T00:00:00.000Z localhost contents\n")
+      expect(encoded).to match(/1970-01-01T00:00:00(\.000)?Z localhost contents\n/)
     end
 
     it 'should call the codec if no output_format' do
@@ -63,7 +63,7 @@ describe LogStash::Outputs::GoogleCloudStorage do
                                 :event => {'message' => 'contents'}
                             })
 
-      expect(encoded).to eq("1970-01-01T00:00:00.000Z localhost contents\n")
+      expect(encoded).to match(/1970-01-01T00:00:00(\.000)?Z localhost contents\n/)
     end
   end
 end
