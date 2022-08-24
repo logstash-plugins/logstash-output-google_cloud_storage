@@ -32,12 +32,11 @@ describe LogStash::Outputs::GoogleCloudStorage do
       expect(encoded.end_with?("\n")).to eq(true)
 
       encoded_hash = JSON.parse(encoded)
-      expect(encoded_hash).to eq({
-                                     'message' => 'contents',
-                                     '@timestamp' => '1970-01-01T00:00:00Z',
-                                     'host' => 'localhost',
-                                     '@version' => '1'})
-    end
+      expect(encoded_hash['message']).to eq('contents')
+      expect(encoded_hash['@timestamp']).to match(/1970-01-01T00:00:00(\.000)?Z/)
+      expect(encoded_hash['host']).to eq('localhost')
+      expect(encoded_hash['@version']).to eq('1')
+     end
 
     it 'should convert to a string if output_format is plain' do
       encoded = encode_test({
