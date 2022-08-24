@@ -1,5 +1,5 @@
-## Unreleased
-  - Updated Google Cloud Storage client library  [#n](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/pull/n)
+## 4.1.1
+  - Updated Google Cloud Storage client library [#48](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/pull/48)
 
 ## 4.1.0
   - Added ability to use Logstash codecs [#42](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/pull/42)
