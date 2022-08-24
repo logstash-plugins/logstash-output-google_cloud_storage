@@ -19,7 +19,7 @@ dependencies {
     implementation "com.google.cloud:google-cloud-storage:1.118.1"
 
     // Dependencies of com.google.cloud:google-cloud-storage:1.118.1
-    implementation "com.fasterxml.jackson.core:jackson-core:2.12.4"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.13.3" // this is required since Logstash 8.3.0
     implementation "com.google.api:api-common:2.0.0"
     implementation "com.google.api-client:google-api-client:1.32.1"
     implementation "com.google.api:gax:2.0.0"
