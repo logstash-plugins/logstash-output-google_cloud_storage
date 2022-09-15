@@ -29,7 +29,6 @@ dependencies {
     implementation "io.opencensus:opencensus-contrib-http-util:0.28.0"
     implementation "com.google.http-client:google-http-client-jackson2:1.39.2"
     implementation "com.fasterxml.jackson.core:jackson-core:2.12.4"
-    implementation "com.fasterxml.jackson.core:jackson-core:2.12.4"
     implementation "com.google.api-client:google-api-client:1.32.1"
     implementation "com.google.oauth-client:google-oauth-client:1.31.5"
     implementation "com.google.http-client:google-http-client-gson:1.39.2"
