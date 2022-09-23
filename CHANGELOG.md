@@ -1,3 +1,6 @@
+## 4.2.0
+  - Updated Google Cloud Storage client library, needs Logstash `>= 8.3.0` to run [#48](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/pull/48)
+
 ## 4.1.0
   - Added ability to use Logstash codecs [#42](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/pull/42)
 
