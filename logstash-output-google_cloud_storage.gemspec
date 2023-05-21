@@ -30,6 +30,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'logstash-codec-json_lines'
   s.add_runtime_dependency 'mime-types', '~> 2' # last version compatible with ruby 2.x
   s.add_runtime_dependency 'concurrent-ruby' # use version bundled with Logstash to avoid platform mismatch on plugin install
+  s.add_runtime_dependency 'thwait', '~> 0.2.0'
 
   s.add_development_dependency 'logstash-devutils'
 end

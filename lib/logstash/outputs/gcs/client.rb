@@ -1,6 +1,7 @@
 require 'thread'
 require 'java'
 require 'logstash-output-google_cloud_storage_jars.rb'
+require 'date'
 
 java_import 'com.google.api.gax.rpc.FixedHeaderProvider'
 java_import 'com.google.api.gax.retrying.RetrySettings'
@@ -22,10 +23,11 @@ module LogStash
           @storage = initialize_storage(json_key_path)
         end
 
-        def upload_object(file_path, content_encoding, content_type)
+        def upload_object(file_path, content_encoding, content_type, hive_partition_files, date_pattern, prefix)
           input = FileInputStream.new(file_path)
 
           blob_name = ::File.basename(file_path)
+          blob_name = prefix + "/" + extract_hive_partition_date_from_filename(blob_name, date_pattern)+ "/" + blob_name if hive_partition_files
           blob_info = com.google.cloud.storage.BlobInfo.newBuilder(@bucket, blob_name)
                           .setContentEncoding(content_encoding)
                           .setContentType(content_type)
@@ -82,6 +84,15 @@ module LogStash
         def nil_or_empty?(param)
           param.nil? || param.empty?
         end
+
+        def extract_hive_partition_date_from_filename(filename,date_pattern)
+          pattern_length = Time.now.strftime(date_pattern).to_s.length
+          timestamp_chars = filename.each_char
+                 .each_cons(pattern_length)
+                 .find { |timestamp_chars| Date.strptime(timestamp_chars.join, date_pattern) rescue nil }
+          timestamp_chars ? Date.parse(timestamp_chars.join).strftime("dt=%Y-%m-%d") : nil
+        end
+
       end
     end
   end
