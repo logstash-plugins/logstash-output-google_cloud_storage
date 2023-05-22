@@ -23,11 +23,11 @@ module LogStash
           @storage = initialize_storage(json_key_path)
         end
 
-        def upload_object(file_path, content_encoding, content_type, hive_partition_files, date_pattern, prefix)
+        def upload_object(file_path, content_encoding, content_type, hive_partition_format, date_pattern)
           input = FileInputStream.new(file_path)
 
           blob_name = ::File.basename(file_path)
-          blob_name = prefix + "/" + extract_hive_partition_date_from_filename(blob_name, date_pattern)+ "/" + blob_name if hive_partition_files
+          blob_name = extract_hive_partition_format_from_filename(blob_name, date_pattern, hive_partition_format) + "/" + blob_name if hive_partition_format != ""
           blob_info = com.google.cloud.storage.BlobInfo.newBuilder(@bucket, blob_name)
                           .setContentEncoding(content_encoding)
                           .setContentType(content_type)
@@ -85,12 +85,12 @@ module LogStash
           param.nil? || param.empty?
         end
 
-        def extract_hive_partition_date_from_filename(filename,date_pattern)
+        def extract_hive_partition_format_from_filename(filename, date_pattern, hive_partition_format)
           pattern_length = Time.now.strftime(date_pattern).to_s.length
           timestamp_chars = filename.each_char
                  .each_cons(pattern_length)
                  .find { |timestamp_chars| Date.strptime(timestamp_chars.join, date_pattern) rescue nil }
-          timestamp_chars ? Date.parse(timestamp_chars.join).strftime("dt=%Y-%m-%d") : nil
+          timestamp_chars ? Date.parse(timestamp_chars.join).strftime(hive_partition_format) : nil
         end
 
       end

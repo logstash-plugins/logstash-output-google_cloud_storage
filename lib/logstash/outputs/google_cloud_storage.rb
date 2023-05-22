@@ -64,7 +64,7 @@ require "zlib"
 #      gzip_content_encoding => false                            (optional)
 #      uploader_interval_secs => 60                              (optional)
 #      upload_synchronous => false                               (optional)
-#      hive_partition_files => false                             (optional)
+#      hive_partition_format => ""                               (optional)
 #    }
 # }
 # --------------------------
@@ -155,11 +155,12 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
   config :max_concurrent_uploads, :validate  => :number, :default => 5
 
-  # When true, uploaded files will be placed into sub-folders based on their creation dates.
-  # log_file_prefix configuration will be used as the parent folder and
-  # uploaded files will be placed on sub-folders in dt=%Y-%m-%d format.
-  # Foldered files can be used for creating hive partitioned external tables at BigQuery.
-  config :hive_partition_files, :validate  => :boolean, :default => false
+  # When set, uploaded files will placed into folders supplied in this config.
+  # It is possible to place files into folders based on their creation date
+  # if date format is supplied in the configuration (example: root_folder/dt=%Y-%m-%d)
+  # Foldered files can be used for creating hive partitioned external tables in BigQuery.
+  # See: https://cloud.google.com/bigquery/docs/hive-partitioned-queries
+  config :hive_partition_format, :validate  => :string, :default => ""
 
   attr_accessor :disable_uploader, :active
 
@@ -254,7 +255,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   ##
   # Uploads a local file to the configured bucket.
   def upload_object(filename)
-    @client.upload_object(filename, @content_encoding, @content_type, @hive_partition_files , @date_pattern, @log_file_prefix)
+    @client.upload_object(filename, @content_encoding, @content_type, @hive_partition_format, @date_pattern)
   end
 
   def upload_and_delete(filename)
