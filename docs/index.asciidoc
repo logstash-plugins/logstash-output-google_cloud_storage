@@ -216,7 +216,6 @@ web interface or with the following command:
 
 **Deprecated** this feature is no longer used, the setting is now a part of <<plugins-{type}s-{plugin}-json_key_file>>.
 
-
 [id="plugins-{type}s-{plugin}-log_file_prefix"]
 ===== `log_file_prefix` 
 
