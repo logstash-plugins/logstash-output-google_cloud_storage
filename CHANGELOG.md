@@ -1,5 +1,5 @@
 ## 5.0.0
-  - Removed obsolete `key_path` option
+  - Removed obsolete `key_path` option [#54](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/pull/54)
 
 ## 4.4.0
   - Updated Google Cloud Storage client library, from `2.12.0` to `2.26.1` [#52](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/pull/52)
