@@ -83,9 +83,6 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   # GCS bucket name, without "gs://" or any other prefix.
   config :bucket, :validate => :string, :required => true
 
-  # GCS path to private key file.
-  config :key_path, :validate => :string, :obsolete => 'Use json_key_file or ADC instead.'
-
   # GCS private key password.
   config :key_password, :validate => :string, :deprecated => 'Use json_key_file or ADC instead.'
 
