@@ -250,7 +250,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   def upload_and_delete(filename)
     file_size = File.stat(filename).size
 
-    if file_size > 0
+    if file_size > 0 || ( @content_type == "application/gzip" && gzip_file_empty(filename) )
       upload_object(filename)
     else
       @logger.debug('File size is zero, skip upload.', :filename => filename)
