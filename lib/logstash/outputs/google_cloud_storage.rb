@@ -260,6 +260,8 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     File.delete(filename)
   end
 
+  ##
+  # Checks if GZip file is empty or not.
   def gzip_file_empty(file_path)
     Zlib::GzipReader.open(file_path) do |gz|
       content = gz.read
