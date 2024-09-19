@@ -260,6 +260,13 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
     File.delete(filename)
   end
 
+  def gzip_file_empty(file_path)
+    Zlib::GzipReader.open(file_path) do |gz|
+      content = gz.read
+      return content.empty?
+    end
+  end
+
   def initialize_log_rotater
     max_file_size = @max_file_size_kbytes * 1024
     @log_rotater = LogStash::Outputs::Gcs::LogRotate.new(@path_factory, max_file_size, @gzip, @flush_interval_secs, @gzip_content_encoding)
