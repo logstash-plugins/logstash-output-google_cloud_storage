@@ -32,7 +32,11 @@ module LogStash
                           .build
 
           @logger.info("Uploading file to #{@bucket}/#{blob_name}")
-          @storage.create(blob_info, input)
+          begin
+            @storage.create(blob_info, input)
+          rescue => e
+            @logger.error("Upload failed!", :exception => e.class, :message => e.message)
+          end
 
           input.close
           @logger.info("Uploaded file to #{@bucket}/#{blob_name}")
