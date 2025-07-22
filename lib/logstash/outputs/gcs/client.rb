@@ -35,7 +35,7 @@ module LogStash
           begin
             @storage.create(blob_info, input)
           rescue => e
-            @logger.error("Upload failed!", :exception => e.class, :message => e.message)
+            @logger.error("Upload failed!", :exception => e.class, :message => e.message. :file => blob_name)
           end
 
           input.close
