@@ -1,3 +1,6 @@
+## 4.5.1
+  - Re-packaging the plugin [#58](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/pull/58)
+
 ## 4.5.0
   - Removed obsolete `key_path` option [#54](https://github.com/logstash-plugins/logstash-output-google_cloud_storage/pull/54)
 
