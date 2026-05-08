@@ -250,7 +250,7 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
   def upload_and_delete(filename)
     file_size = File.stat(filename).size
 
-    if file_size > 0
+    if file_size > 0 || ( @content_type == "application/gzip" && gzip_file_empty(filename) )
       upload_object(filename)
     else
       @logger.debug('File size is zero, skip upload.', :filename => filename)
@@ -258,6 +258,15 @@ class LogStash::Outputs::GoogleCloudStorage < LogStash::Outputs::Base
 
     @logger.debug('Delete local temporary file', :filename => filename)
     File.delete(filename)
+  end
+
+  ##
+  # Checks if GZip file is empty or not.
+  def gzip_file_empty(file_path)
+    Zlib::GzipReader.open(file_path) do |gz|
+      content = gz.read
+      return content.empty?
+    end
   end
 
   def initialize_log_rotater
